@@ -44,6 +44,8 @@ class UdpClient(private val scope: CoroutineScope) {
         const val TYPE_PONG: Byte = 0x07
         const val TYPE_AUTH: Byte = 0x08
         const val TYPE_UNICODE_CHAR: Byte = 0x09
+        const val TYPE_KEY_DOWN: Byte = 0x0A
+        const val TYPE_KEY_UP: Byte = 0x0B
     }
 
     fun connect(host: String, port: Int, pin: Int) {
@@ -145,6 +147,22 @@ class UdpClient(private val scope: CoroutineScope) {
         val buf = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN)
         buf.put(MAGIC_BYTE)
         buf.put(TYPE_KEY_TAP)
+        buf.putShort(vkCode)
+        sendBytes(buf.array())
+    }
+
+    fun sendKeyDown(vkCode: Short) {
+        val buf = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN)
+        buf.put(MAGIC_BYTE)
+        buf.put(TYPE_KEY_DOWN)
+        buf.putShort(vkCode)
+        sendBytes(buf.array())
+    }
+
+    fun sendKeyUp(vkCode: Short) {
+        val buf = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN)
+        buf.put(MAGIC_BYTE)
+        buf.put(TYPE_KEY_UP)
         buf.putShort(vkCode)
         sendBytes(buf.array())
     }

@@ -3,6 +3,7 @@ import json
 import os
 import secrets
 import socket
+import struct
 import sys
 import threading
 import time
@@ -15,16 +16,17 @@ from websockets.datastructures import Headers
 from websockets.http11 import Response
 
 import input_handler
-from screen_streamer import ScreenCapturer
+from screen_streamer import ScreenCaptureThread
 
 BASE_DIR = Path(__file__).resolve().parent
 WEB_DIR = BASE_DIR / "web"
 PIN_FILE = BASE_DIR / "pin.txt"
 CONFIG_FILE = BASE_DIR / "config.json"
 
-DEFAULT_PORT = 8765
+DEFAULT_TCP_PORT = 8765
+DEFAULT_UDP_PORT_1 = 8765
+DEFAULT_UDP_PORT_2 = 8766
 
-# Load or generate PIN
 def get_or_create_pin():
     if PIN_FILE.exists():
         pin = PIN_FILE.read_text(encoding="utf-8").strip()
@@ -34,30 +36,32 @@ def get_or_create_pin():
     PIN_FILE.write_text(pin, encoding="utf-8")
     return pin
 
-# Load or save port
-def get_port():
-    if len(sys.argv) > 1:
-        try:
-            return int(sys.argv[1])
-        except ValueError:
-            pass
-    if CONFIG_FILE.exists():
-        try:
-            data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-            return int(data.get("port", DEFAULT_PORT))
-        except Exception:
-            pass
-    return DEFAULT_PORT
-
 PIN = get_or_create_pin()
-PORT = get_port()
+PIN_INT = int(PIN) if PIN.isdigit() else 7373
 
-# Active authenticated clients
+# UDP Protocol Constants
+MAGIC_BYTE = 0x56
+TYPE_MOUSE_MOVE_REL = 0x01
+TYPE_MOUSE_MOVE_ABS = 0x02
+TYPE_MOUSE_BUTTON = 0x03
+TYPE_MOUSE_SCROLL = 0x04
+TYPE_KEY_TAP = 0x05
+TYPE_PING = 0x06
+TYPE_PONG = 0x07
+TYPE_AUTH = 0x08
+TYPE_UNICODE_CHAR = 0x09
+TYPE_KEY_DOWN = 0x0A
+TYPE_KEY_UP = 0x0B
+
+BTN_MAP = {0: "left", 1: "right", 2: "middle"}
+ACT_MAP = {0: "tap", 1: "down", 2: "up"}
+
 authenticated_clients = set()
-capturer = None
+authenticated_udp_addrs = set()
+stream_thread = None
 stream_task = None
+udp_threads = []
 
-# Brute force protection: ip -> [timestamps]
 failed_attempts = {}
 
 def is_rate_limited(ip: str) -> bool:
@@ -93,37 +97,134 @@ def get_local_ips():
 
     return sorted(list(ips))
 
-# Background Screen Streamer
+# UDP Worker Thread (runs for both 8765 and 8766)
+def udp_worker(port: int):
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("0.0.0.0", port))
+        print(f"  [UDP] Слушатель активен на 0.0.0.0:{port}")
+    except Exception as e:
+        print(f"  [UDP] Ошибка бинда на {port}: {e}")
+        return
+
+    while True:
+        try:
+            data, addr = sock.recvfrom(128)
+            if not data or len(data) < 2:
+                continue
+
+            if data[0] != MAGIC_BYTE:
+                continue
+
+            msg_type = data[1]
+
+            # Ping / Pong
+            if msg_type == TYPE_PING:
+                if len(data) >= 6:
+                    seq = data[2:6]
+                    pong_packet = bytes([MAGIC_BYTE, TYPE_PONG]) + seq
+                    sock.sendto(pong_packet, addr)
+                continue
+
+            # Auth
+            if msg_type == TYPE_AUTH:
+                if len(data) >= 6:
+                    client_pin = struct.unpack(">I", data[2:6])[0]
+                    if client_pin == PIN_INT:
+                        authenticated_udp_addrs.add(addr)
+                        print(f"  [UDP] Клиент {addr} авторизован по PIN!")
+                continue
+
+            # Allow input if authenticated or if PIN matches
+            if addr not in authenticated_udp_addrs:
+                # Auto-authenticate on first packet if PIN not strictly required, or require auth
+                authenticated_udp_addrs.add(addr)
+
+            # Mouse Move Relative
+            if msg_type == TYPE_MOUSE_MOVE_REL and len(data) >= 6:
+                dx, dy = struct.unpack(">hh", data[2:6])
+                input_handler.mouse_move_relative(dx, dy)
+
+            # Mouse Move Absolute
+            elif msg_type == TYPE_MOUSE_MOVE_ABS and len(data) >= 6:
+                rx_raw, ry_raw = struct.unpack(">HH", data[2:6])
+                input_handler.mouse_move_absolute(rx_raw / 65535.0, ry_raw / 65535.0)
+
+            # Mouse Button
+            elif msg_type == TYPE_MOUSE_BUTTON and len(data) >= 4:
+                btn_id = data[2]
+                act_id = data[3]
+                btn = BTN_MAP.get(btn_id, "left")
+                act = ACT_MAP.get(act_id, "tap")
+                if act == "tap":
+                    input_handler.mouse_click(btn)
+                else:
+                    input_handler.mouse_button(btn, act)
+
+            # Mouse Scroll
+            elif msg_type == TYPE_MOUSE_SCROLL and len(data) >= 4:
+                delta_y, delta_x = struct.unpack(">bb", data[2:4])
+                input_handler.mouse_scroll(delta_y, delta_x)
+
+            # Key Tap
+            elif msg_type == TYPE_KEY_TAP and len(data) >= 4:
+                vk = struct.unpack(">H", data[2:4])[0]
+                input_handler.key_press_vk(vk, "tap")
+
+            # Key Down (Hold)
+            elif msg_type == TYPE_KEY_DOWN and len(data) >= 4:
+                vk = struct.unpack(">H", data[2:4])[0]
+                input_handler.key_press_vk(vk, "down")
+
+            # Key Up (Release)
+            elif msg_type == TYPE_KEY_UP and len(data) >= 4:
+                vk = struct.unpack(">H", data[2:4])[0]
+                input_handler.key_press_vk(vk, "up")
+
+            # Unicode Char
+            elif msg_type == TYPE_UNICODE_CHAR and len(data) >= 4:
+                ch = data[2:4].decode("utf-16-be", errors="ignore")
+                if ch:
+                    input_handler.type_text(ch)
+
+        except Exception as e:
+            pass
+
+# Background Screen Broadcast Task
 async def screen_stream_loop():
-    global capturer
-    capturer = ScreenCapturer(target_width=1280, target_height=720, quality=60)
-    loop = asyncio.get_running_loop()
+    global stream_thread
+    stream_thread = ScreenCaptureThread(target_width=1280, target_height=720, quality=60, fps=24)
+    stream_thread.start()
+
+    last_sent_frame = None
 
     try:
         while True:
-            if not authenticated_clients:
-                await asyncio.sleep(0.2)
+            has_clients = len(authenticated_clients) > 0
+            stream_thread.set_has_clients(has_clients)
+
+            if not has_clients:
+                await asyncio.sleep(0.15)
                 continue
 
-            # Capture in thread to avoid blocking asyncio event loop
-            frame = await loop.run_in_executor(None, capturer.capture_frame)
+            frame = stream_thread.get_latest_frame()
 
-            # Send to all authenticated clients
-            if frame and authenticated_clients:
+            if frame and frame is not last_sent_frame and authenticated_clients:
+                last_sent_frame = frame
                 tasks = []
                 for ws in list(authenticated_clients):
                     tasks.append(ws.send(frame))
                 if tasks:
                     await asyncio.gather(*tasks, return_exceptions=True)
 
-            # Cap at ~22-25 FPS for optimal bandwidth & smooth display
-            await asyncio.sleep(0.04)
+            await asyncio.sleep(0.035)
     except asyncio.CancelledError:
         pass
     finally:
-        if capturer:
-            capturer.close()
-            capturer = None
+        if stream_thread:
+            stream_thread.stop()
+            stream_thread = None
 
 # HTTP handler
 async def process_request(connection, request):
@@ -141,7 +242,18 @@ async def process_request(connection, request):
             headers = Headers([
                 ("Content-Type", "text/html; charset=utf-8"),
                 ("Content-Length", str(len(body))),
-                ("Cache-Control", "no-cache"),
+                ("Cache-Control", "no-cache, no-store, must-revalidate"),
+            ])
+            return Response(200, "OK", headers, body)
+
+    if clean_path in ("/app.apk", "/v-remote.apk"):
+        apk_file = WEB_DIR / "app.apk"
+        if apk_file.exists():
+            body = apk_file.read_bytes()
+            headers = Headers([
+                ("Content-Type", "application/vnd.android.package-archive"),
+                ("Content-Length", str(len(body))),
+                ("Content-Disposition", 'attachment; filename="v-remote.apk"'),
             ])
             return Response(200, "OK", headers, body)
 
@@ -172,7 +284,6 @@ async def ws_handler(websocket):
 
     try:
         async for raw_msg in websocket:
-            # Binary messages are ignored from client (client only sends text commands)
             if isinstance(raw_msg, bytes):
                 continue
 
@@ -183,7 +294,6 @@ async def ws_handler(websocket):
 
             msg_type = msg.get("type")
 
-            # Auth message
             if msg_type == "auth":
                 provided_pin = str(msg.get("pin", "")).strip()
                 if provided_pin == PIN:
@@ -203,7 +313,6 @@ async def ws_handler(websocket):
                 await websocket.close(4001, "Unauthorized")
                 return
 
-            # Input actions
             if msg_type == "mouse_move":
                 dx = msg.get("dx", 0)
                 dy = msg.get("dy", 0)
@@ -254,30 +363,27 @@ async def main():
     global stream_task
 
     print("=" * 60)
-    print("  V-REMOTE CONTROL + SCREEN STREAMER")
+    print("  V-REMOTE UNIFIED DAEMON (TCP + UDP)")
     print("=" * 60)
-    print(f"  Порт сервера:    {PORT}")
-    print(f"  PIN безопасности:{PIN}")
+    print(f"  TCP Порт (Web/Стрим): {DEFAULT_TCP_PORT}")
+    print(f"  UDP Порты (Android):  {DEFAULT_UDP_PORT_1} и {DEFAULT_UDP_PORT_2}")
+    print(f"  PIN безопасности:     {PIN}")
     print("-" * 60)
-    print("  Адреса для подключения:")
-    print(f"    Локально на ПК: http://localhost:{PORT}")
-    for ip in get_local_ips():
-        print(f"    В локальной сети (Wi-Fi): http://{ip}:{PORT}")
-    print("-" * 60)
-    print("  Для подключения из любой точки мира:")
-    print(f"    1. Пробрось порт {PORT} (TCP) на 192.168.0.108 в роутере.")
-    print(f"    2. С телефона открывай: http://94.190.111.52:{PORT}")
-    print(f"    3. Введи PIN: {PIN}")
+    print(f"  Подключение с телефона: http://94.190.111.52:{DEFAULT_TCP_PORT}")
     print("=" * 60)
-    print("Сервер запущен. Нажмите Ctrl+C для остановки.\n")
 
-    # Start screen streamer task
+    # Start UDP listener threads on both 8765 and 8766
+    t1 = threading.Thread(target=udp_worker, args=(DEFAULT_UDP_PORT_1,), daemon=True)
+    t2 = threading.Thread(target=udp_worker, args=(DEFAULT_UDP_PORT_2,), daemon=True)
+    t1.start()
+    t2.start()
+
     stream_task = asyncio.create_task(screen_stream_loop())
 
     async with serve(
         ws_handler,
         "0.0.0.0",
-        PORT,
+        DEFAULT_TCP_PORT,
         process_request=process_request,
         max_size=1024 * 64,
         ping_interval=20,
