@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0d0f12">
+  <title>V-Remote Desktop</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      background: #000;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    /* Auth Screen */
+    #auth-screen {
+      position: fixed;
+      inset: 0;
+      background: #0d0f12;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 1000;
+    }
+
+    .auth-box {
+      width: 100%;
+      max-width: 340px;
+      background: #171b22;
+      border: 1px solid #2d3748;
+      border-radius: 16px;
+      padding: 28px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    .auth-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #f7fafc;
+    }
+
+    .auth-subtitle {
+      font-size: 13px;
+      color: #a0aec0;
+    }
+
+    .auth-input {
+      background: #0d0f12;
+      border: 2px solid #4a5568;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 24px;
+      text-align: center;
+      padding: 12px;
+      letter-spacing: 6px;
+      font-weight: bold;
+      outline: none;
+    }
+    .auth-input:focus {
+      border-color: #3b82f6;
+    }
+
+    .auth-btn {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .auth-btn:active {
+      background: #1d4ed8;
+    }
+
+    #auth-error {
+      color: #ef4444;
+      font-size: 13px;
+      display: none;
+    }
+
+    /* Top Bar */
+    header {
+      height: 44px;
+      background: #141820;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      border-bottom: 1px solid #222938;
+      flex-shrink: 0;
+      z-index: 50;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ef4444;
+      transition: background 0.3s;
+    }
+    .status-dot.connected {
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .icon-btn {
+      background: #1e2433;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      border-radius: 8px;
+      padding: 6px 9px;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+    }
+    .icon-btn:active, .icon-btn.active {
+      background: #2563eb;
+      color: #fff;
+      border-color: #3b82f6;
+    }
+
+    .win-btn {
+      background: #1e3a8a;
+      border-color: #3b82f6;
+      color: #bfdbfe;
+      font-weight: 700;
+      font-size: 12px;
+      padding: 6px 10px;
+    }
+    .win-btn:active {
+      background: #3b82f6;
+      color: #fff;
+    }
+
+    /* Quick Toolbar */
+    .quick-bar {
+      display: flex;
+      overflow-x: auto;
+      background: #10131a;
+      padding: 5px 8px;
+      gap: 6px;
+      border-bottom: 1px solid #1e2533;
+      flex-shrink: 0;
+      scrollbar-width: none;
+      z-index: 50;
+    }
+    .quick-bar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .key-btn {
+      background: #1c2230;
+      border: 1px solid #2e384d;
+      color: #e2e8f0;
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 500;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .key-btn:active {
+      background: #3b82f6;
+      color: #fff;
+    }
+
+    /* Screen Container */
+    #viewport {
+      flex: 1;
+      position: relative;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: none;
+      overflow: hidden;
+    }
+
+    #screen-canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      background: #000;
+      pointer-events: none;
+    }
+
+    #touch-surface {
+      position: absolute;
+      inset: 0;
+      touch-action: none;
+      z-index: 20;
+    }
+
+    #fps-meter {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: rgba(0,0,0,0.6);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      color: #10b981;
+      pointer-events: none;
+      z-index: 30;
+    }
+
+    /* Mode Banner */
+    #mode-banner {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(37, 99, 235, 0.85);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      pointer-events: none;
+      z-index: 30;
+    }
+
+    /* Drag Mode Indicator */
+    #drag-indicator {
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(239, 68, 68, 0.9);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 12px;
+      display: none;
+      z-index: 30;
+    }
+
+    /* Scroll Rail */
+    .scroll-rail {
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 36px;
+      background: rgba(255, 255, 255, 0.04);
+      border-left: 1px dashed rgba(255, 255, 255, 0.15);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #64748b;
+      font-size: 9px;
+      writing-mode: vertical-rl;
+      pointer-events: none;
+      z-index: 25;
+    }
+
+    /* Bottom Mouse Buttons */
+    .mouse-bar {
+      height: 60px;
+      background: #141820;
+      border-top: 1px solid #222938;
+      display: grid;
+      grid-template-columns: 1fr 50px 1fr;
+      gap: 6px;
+      padding: 5px 8px;
+      flex-shrink: 0;
+      z-index: 50;
+    }
+
+    .mouse-btn {
+      background: #1e2433;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      color: #f1f5f9;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .mouse-btn:active, .mouse-btn.active {
+      background: #3b82f6;
+      color: #fff;
+      border-color: #60a5fa;
+    }
+
+    .mouse-btn.mid {
+      font-size: 10px;
+      color: #94a3b8;
+    }
+
+    /* Hidden native keyboard helper */
+    #hidden-input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+      top: -100px;
+      left: 0;
+    }
+
+    /* Text Modal */
+    #text-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 500;
+      align-items: flex-end;
+    }
+    #text-modal.active {
+      display: flex;
+    }
+    .text-modal-content {
+      width: 100%;
+      background: #171b22;
+      border-radius: 16px 16px 0 0;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .text-area {
+      width: 100%;
+      background: #0d0f12;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 16px;
+      padding: 10px;
+      outline: none;
+      resize: none;
+      height: 70px;
+    }
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .modal-btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .modal-btn.send {
+      background: #2563eb;
+      color: #fff;
+    }
+    .modal-btn.cancel {
+      background: #334155;
+      color: #cbd5e1;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Auth Screen -->
+  <div id="auth-screen">
+    <div class="auth-box">
+      <div class="auth-title">V-Remote Desktop</div>
+      <div class="auth-subtitle">Введите PIN-код сервера ПК</div>
+      <input type="password" id="pin-input" class="auth-input" maxlength="8" placeholder="••••" inputmode="numeric" autocomplete="one-time-code">
+      <button id="btn-login" class="auth-btn">Подключиться к экрану</button>
+      <div id="auth-error">Неверный PIN или сервер недоступен</div>
+    </div>
+  </div>
+
+  <!-- Top Bar -->
+  <header>
+    <div class="status-badge">
+      <div id="status-dot" class="status-dot"></div>
+      <span id="status-text">Подключение...</span>
+    </div>
+    <div class="header-actions">
+      <button id="btn-win" class="icon-btn win-btn" title="Меню Пуск">⊞ Win</button>
+      <button id="btn-mode" class="icon-btn" title="Сменить режим">🎯 Сенсор</button>
+      <button id="btn-drag" class="icon-btn" title="Зажать ЛКМ">Удержание</button>
+      <button id="btn-kb-text" class="icon-btn" title="Ввод текста">Текст</button>
+      <button id="btn-kb-raw" class="icon-btn" title="Клавиатура">⌨️</button>
+    </div>
+  </header>
+
+  <!-- Quick Key Bar -->
+  <div class="quick-bar">
+    <button class="key-btn" data-key="meta" style="background:#1e3a8a;border-color:#3b82f6;color:#93c5fd;font-weight:700;">⊞ Win</button>
+    <button class="key-btn" data-hotkey="meta,d">Win+D</button>
+    <button class="key-btn" data-key="escape">Esc</button>
+    <button class="key-btn" data-key="tab">Tab</button>
+    <button class="key-btn" data-key="enter">Enter</button>
+    <button class="key-btn" data-key="backspace">⌫ Del</button>
+    <button class="key-btn" data-hotkey="alt,tab">Alt+Tab</button>
+    <button class="key-btn" data-hotkey="control,c">Ctrl+C</button>
+    <button class="key-btn" data-hotkey="control,v">Ctrl+V</button>
+    <button class="key-btn" data-key="arrowup">▲</button>
+    <button class="key-btn" data-key="arrowdown">▼</button>
+    <button class="key-btn" data-key="arrowleft">◄</button>
+    <button class="key-btn" data-key="arrowright">►</button>
+    <button class="key-btn" data-key="volumeup">Vol +</button>
+    <button class="key-btn" data-key="volumedown">Vol -</button>
+    <button class="key-btn" data-key="volumemute">Mute</button>
+  </div>
+
+  <!-- Main Viewport with Screen Stream -->
+  <div id="viewport">
+    <canvas id="screen-canvas" width="1280" height="720"></canvas>
+    <div id="touch-surface"></div>
+    <div id="fps-meter">0 FPS</div>
+    <div id="mode-banner">СЕНСОР (КЛИК ПО ЭКРАНУ)</div>
+    <div id="drag-indicator">ЛКМ ЗАЖАТА (DRAG)</div>
+    <div class="scroll-rail">СКРОЛЛ</div>
+  </div>
+
+  <!-- Bottom Mouse Buttons -->
+  <div class="mouse-bar">
+    <button id="btn-lmb" class="mouse-btn">ЛЕВАЯ (ЛКМ)</button>
+    <button id="btn-mmb" class="mouse-btn mid">КОЛЕСО</button>
+    <button id="btn-rmb" class="mouse-btn">ПРАВАЯ (ПКМ)</button>
+  </div>
+
+  <input type="text" id="hidden-input" autocomplete="off" autocapitalize="off" spellcheck="false">
+
+  <!-- Text Input Modal -->
+  <div id="text-modal">
+    <div class="text-modal-content">
+      <div style="font-weight:600;font-size:14px;">Отправить текст на ПК:</div>
+      <textarea id="text-content" class="text-area" placeholder="Напишите текст на любом языке..."></textarea>
+      <div class="modal-actions">
+        <button id="btn-send-text" class="modal-btn send">Отправить</button>
+        <button id="btn-cancel-text" class="modal-btn cancel">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let ws = null;
+    let token = localStorage.getItem('v_remote_token') || '';
+    let isDirectTouch = true; // true: Direct Touch (tap on screen), false: Trackpad (relative cursor move)
+    let isDragMode = false;
+
+    // Elements
+    const authScreen = document.getElementById('auth-screen');
+    const pinInput = document.getElementById('pin-input');
+    const btnLogin = document.getElementById('btn-login');
+    const authError = document.getElementById('auth-error');
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const viewport = document.getElementById('viewport');
+    const canvas = document.getElementById('screen-canvas');
+    const ctx = canvas.getContext('2d');
+    const touchSurface = document.getElementById('touch-surface');
+    const fpsMeter = document.getElementById('fps-meter');
+    const modeBanner = document.getElementById('mode-banner');
+    const btnMode = document.getElementById('btn-mode');
+    const btnWin = document.getElementById('btn-win');
+    const btnDrag = document.getElementById('btn-drag');
+    const dragIndicator = document.getElementById('drag-indicator');
+    const btnLmb = document.getElementById('btn-lmb');
+    const btnMmb = document.getElementById('btn-mmb');
+    const btnRmb = document.getElementById('btn-rmb');
+    const hiddenInput = document.getElementById('hidden-input');
+    const btnKbRaw = document.getElementById('btn-kb-raw');
+    const btnKbText = document.getElementById('btn-kb-text');
+    const textModal = document.getElementById('text-modal');
+    const textContent = document.getElementById('text-content');
+    const btnSendText = document.getElementById('btn-send-text');
+    const btnCancelText = document.getElementById('btn-cancel-text');
+
+    // FPS calculation
+    let frameCount = 0;
+    let lastFpsUpdate = Date.now();
+
+    function vibrate(ms = 25) {
+      if (navigator.vibrate) navigator.vibrate(ms);
+    }
+
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) await navigator.wakeLock.request('screen');
+      } catch (e) {}
+    }
+
+    function sendPayload(type, data = {}) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type, ...data }));
+      }
+    }
+
+    // Connect WebSocket
+    function connectWs() {
+      const loc = window.location;
+      const wsProtocol = loc.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${wsProtocol}//${loc.host}/ws?token=${encodeURIComponent(token)}`;
+
+      ws = new WebSocket(wsUrl);
+      ws.binaryType = 'blob';
+
+      ws.onopen = () => {
+        statusDot.classList.add('connected');
+        statusText.textContent = 'Экран активен';
+        authScreen.style.display = 'none';
+        requestWakeLock();
+      };
+
+      ws.onmessage = async (e) => {
+        // Binary frame = Screen JPEG
+        if (e.data instanceof Blob) {
+          try {
+            const bitmap = await createImageBitmap(e.data);
+            ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+            bitmap.close();
+
+            frameCount++;
+            const now = Date.now();
+            if (now - lastFpsUpdate >= 1000) {
+              fpsMeter.textContent = `${frameCount} FPS`;
+              frameCount = 0;
+              lastFpsUpdate = now;
+            }
+          } catch (err) {}
+          return;
+        }
+
+        // Text control messages
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type === 'auth_ok') {
+            localStorage.setItem('v_remote_token', token);
+            authScreen.style.display = 'none';
+          } else if (msg.type === 'auth_error') {
+            authError.textContent = msg.message || 'Ошибка авторизации';
+            authError.style.display = 'block';
+            authScreen.style.display = 'flex';
+          }
+        } catch (err) {}
+      };
+
+      ws.onclose = (e) => {
+        statusDot.classList.remove('connected');
+        statusText.textContent = 'Отключено';
+        if (e.code === 4001) {
+          authError.textContent = 'Неверный PIN-код';
+          authError.style.display = 'block';
+          authScreen.style.display = 'flex';
+        } else {
+          setTimeout(connectWs, 2000);
+        }
+      };
+
+      ws.onerror = () => ws.close();
+    }
+
+    // Auth
+    btnLogin.addEventListener('click', () => {
+      const val = pinInput.value.trim();
+      if (!val) return;
+      token = val;
+      authError.style.display = 'none';
+      connectWs();
+    });
+
+    pinInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') btnLogin.click();
+    });
+
+    if (token) {
+      connectWs();
+    } else {
+      authScreen.style.display = 'flex';
+    }
+
+    btnWin.addEventListener('click', () => {
+      vibrate(30);
+      sendPayload('key_tap', { key: 'meta' });
+    });
+
+    // Toggle Mode: Direct Touch vs Trackpad
+    btnMode.addEventListener('click', () => {
+      isDirectTouch = !isDirectTouch;
+      if (isDirectTouch) {
+        btnMode.textContent = '🎯 Сенсор';
+        modeBanner.textContent = 'СЕНСОР (КЛИК ПО ЭКРАНУ)';
+        modeBanner.style.background = 'rgba(37, 99, 235, 0.85)';
+      } else {
+        btnMode.textContent = '🖱️ Тачпад';
+        modeBanner.textContent = 'ТАЧПАД (КУРСОР)';
+        modeBanner.style.background = 'rgba(16, 185, 129, 0.85)';
+      }
+      vibrate(30);
+    });
+
+    // Drag Toggle
+    btnDrag.addEventListener('click', () => {
+      isDragMode = !isDragMode;
+      btnDrag.classList.toggle('active', isDragMode);
+      dragIndicator.style.display = isDragMode ? 'block' : 'none';
+      vibrate(40);
+      sendPayload('mouse_button', { button: 'left', action: isDragMode ? 'down' : 'up' });
+    });
+
+    // Mouse Buttons
+    function setupHoldBtn(btn, buttonName) {
+      const start = (e) => {
+        e.preventDefault();
+        vibrate(30);
+        btn.classList.add('active');
+        sendPayload('mouse_button', { button: buttonName, action: 'down' });
+      };
+      const end = (e) => {
+        e.preventDefault();
+        btn.classList.remove('active');
+        sendPayload('mouse_button', { button: buttonName, action: 'up' });
+      };
+      btn.addEventListener('pointerdown', start);
+      btn.addEventListener('pointerup', end);
+      btn.addEventListener('pointercancel', end);
+    }
+
+    setupHoldBtn(btnLmb, 'left');
+    setupHoldBtn(btnMmb, 'middle');
+    setupHoldBtn(btnRmb, 'right');
+
+    // Quick Keys
+    document.querySelectorAll('.key-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        vibrate(20);
+        const hotkey = btn.dataset.hotkey;
+        const key = btn.dataset.key;
+        if (hotkey) {
+          sendPayload('hotkey', { keys: hotkey.split(',') });
+        } else if (key) {
+          sendPayload('key_tap', { key });
+        }
+      });
+    });
+
+    // Touch Handling on Screen
+    const touches = new Map();
+    let touchStartTime = 0;
+    let hasMoved = false;
+
+    function getNormalizedCoords(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      const rx = (clientX - rect.left) / rect.width;
+      const ry = (clientY - rect.top) / rect.height;
+      return { rx: Math.max(0, Math.min(1, rx)), ry: Math.max(0, Math.min(1, ry)) };
+    }
+
+    touchSurface.addEventListener('pointerdown', (e) => {
+      touchSurface.setPointerCapture(e.pointerId);
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY });
+
+      if (touches.size === 1) {
+        touchStartTime = Date.now();
+        hasMoved = false;
+
+        if (isDirectTouch) {
+          const { rx, ry } = getNormalizedCoords(e.clientX, e.clientY);
+          sendPayload('mouse_move_abs', { rx, ry });
+          if (isDragMode) {
+            sendPayload('mouse_button', { button: 'left', action: 'down' });
+          }
+        }
+      }
+    });
+
+    touchSurface.addEventListener('pointermove', (e) => {
+      if (!touches.has(e.pointerId)) return;
+
+      const prev = touches.get(e.pointerId);
+      const dx = e.clientX - prev.x;
+      const dy = e.clientY - prev.y;
+
+      touches.set(e.pointerId, { ...prev, x: e.clientX, y: e.clientY });
+
+      if (Math.abs(e.clientX - prev.startX) > 4 || Math.abs(e.clientY - prev.startY) > 4) {
+        hasMoved = true;
+      }
+
+      const rect = touchSurface.getBoundingClientRect();
+      const inScrollRail = (prev.startX > rect.right - 40);
+
+      if (inScrollRail) {
+        // Fast scroll ribbon
+        sendPayload('mouse_scroll', { delta_y: -dy * 0.15 });
+        return;
+      }
+
+      if (isDirectTouch) {
+        // Direct Touch: move to exact position under finger
+        const { rx, ry } = getNormalizedCoords(e.clientX, e.clientY);
+        sendPayload('mouse_move_abs', { rx, ry });
+      } else {
+        // Trackpad mode: relative movement
+        if (touches.size === 1) {
+          sendPayload('mouse_move', { dx: dx * 1.5, dy: dy * 1.5 });
+        } else if (touches.size === 2) {
+          sendPayload('mouse_scroll', { delta_y: -dy * 0.12 });
+        }
+      }
+    });
+
+    function handlePointerUpOrCancel(e) {
+      if (!touches.has(e.pointerId)) return;
+      const countBefore = touches.size;
+      const duration = Date.now() - touchStartTime;
+
+      touches.delete(e.pointerId);
+
+      // Short tap without move = Click
+      if (!hasMoved && duration < 280) {
+        if (isDirectTouch) {
+          const { rx, ry } = getNormalizedCoords(e.clientX, e.clientY);
+          sendPayload('mouse_move_abs', { rx, ry });
+          vibrate(25);
+          sendPayload('mouse_click', { button: 'left' });
+        } else {
+          if (countBefore === 1 && !isDragMode) {
+            vibrate(25);
+            sendPayload('mouse_click', { button: 'left' });
+          } else if (countBefore === 2) {
+            vibrate(35);
+            sendPayload('mouse_click', { button: 'right' });
+          }
+        }
+      }
+    }
+
+    touchSurface.addEventListener('pointerup', handlePointerUpOrCancel);
+    touchSurface.addEventListener('pointercancel', handlePointerUpOrCancel);
+
+    // Keyboard
+    btnKbRaw.addEventListener('click', () => hiddenInput.focus());
+
+    hiddenInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace') {
+        sendPayload('key_tap', { key: 'backspace' });
+      } else if (e.key === 'Enter') {
+        sendPayload('key_tap', { key: 'enter' });
+      } else if (e.key === 'Tab') {
+        sendPayload('key_tap', { key: 'tab' });
+      } else if (e.key.length === 1) {
+        sendPayload('type_text', { text: e.key });
+      }
+    });
+
+    // Text Modal
+    btnKbText.addEventListener('click', () => {
+      textModal.classList.add('active');
+      textContent.value = '';
+      setTimeout(() => textContent.focus(), 100);
+    });
+
+    btnCancelText.addEventListener('click', () => textModal.classList.remove('active'));
+
+    btnSendText.addEventListener('click', () => {
+      const text = textContent.value;
+      if (text) {
+        sendPayload('type_text', { text });
+        vibrate(30);
+      }
+      textModal.classList.remove('active');
+    });
+
+    document.addEventListener('contextmenu', e => e.preventDefault());
+  </script>
+</body>
+</html>
