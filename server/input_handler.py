@@ -109,10 +109,7 @@ def _send_hardware_key(vk: int, is_up: bool):
     if sent == 0:
         user32.keybd_event(vk, sc, flags, 0)
 
-def mouse_move_relative(dx: int, dy: int):
-    ensure_default_desktop()
-    # Generates hardware relative motion packets (DirectInput/RawInput for 3D games)
-    user32.mouse_event(MOUSEEVENTF_MOVE, int(dx), int(dy), 0, 0)
+VK_MAP = {
     "enter": 0x0D,
     "backspace": 0x08,
     "tab": 0x09,
@@ -159,11 +156,8 @@ def mouse_move_relative(dx: int, dy: int):
 
 def mouse_move_relative(dx: int, dy: int):
     ensure_default_desktop()
-    pt = POINT()
-    if user32.GetCursorPos(ctypes.byref(pt)):
-        new_x = max(0, pt.x + int(dx))
-        new_y = max(0, pt.y + int(dy))
-        user32.SetCursorPos(new_x, new_y)
+    # Generates hardware relative motion packets (DirectInput/RawInput for 3D games)
+    user32.mouse_event(MOUSEEVENTF_MOVE, int(dx), int(dy), 0, 0)
 
 def mouse_move_absolute(rx: float, ry: float):
     ensure_default_desktop()
