@@ -38,22 +38,22 @@ fun DesktopSurface(
     val haptic = LocalHapticFeedback.current
     var surfaceSize by remember { mutableStateOf(IntSize.Zero) }
 
-    // Outer container with sleek dark matte background
+    // Outer dark container covering phone screen
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF0B0E14)),
+            .background(Color(0xFF0B0E14))
+            .padding(horizontal = 8.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Inner Viewport with small borders / margins, rounded corners and 16:9 ratio
+        // Inner Viewport strictly fitting height first so 16:9 desktop NEVER gets cropped top/bottom
         Box(
             modifier = Modifier
-                .padding(horizontal = 10.dp, vertical = 6.dp)
-                .fillMaxSize()
-                .aspectRatio(16f / 9f)
-                .shadow(elevation = 12.dp, shape = RoundedCornerShape(10.dp))
-                .clip(RoundedCornerShape(10.dp))
-                .border(1.dp, Color(0xFF262D3D), RoundedCornerShape(10.dp))
+                .fillMaxHeight()
+                .aspectRatio(16f / 9f, matchHeightConstraintsFirst = true)
+                .shadow(elevation = 8.dp, shape = RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(8.dp))
+                .border(1.dp, Color(0xFF262D3D), RoundedCornerShape(8.dp))
                 .background(Color.Black)
                 .onSizeChanged { surfaceSize = it }
                 .pointerInput(isDragMode) {
