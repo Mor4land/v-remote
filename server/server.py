@@ -194,7 +194,7 @@ def udp_worker(port: int):
 # Background Screen Broadcast Task
 async def screen_stream_loop():
     global stream_thread
-    stream_thread = ScreenCaptureThread(target_width=1280, target_height=720, quality=60, fps=24)
+    stream_thread = ScreenCaptureThread(target_width=1280, target_height=720, quality=45, fps=60)
     stream_thread.start()
 
     last_sent_frame = None
@@ -281,6 +281,11 @@ async def ws_handler(websocket):
     if authenticated:
         authenticated_clients.add(websocket)
         await websocket.send(json.dumps({"type": "auth_ok"}))
+    elif token:
+        record_failed_attempt(client_ip)
+        await websocket.send(json.dumps({"type": "auth_error", "message": "Неверный PIN"}))
+        await websocket.close(4001, "Auth failed")
+        return
 
     try:
         async for raw_msg in websocket:
@@ -341,6 +346,16 @@ async def ws_handler(websocket):
                 key = msg.get("key", "")
                 if key:
                     input_handler.key_press(key, "tap")
+
+            elif msg_type == "key_down":
+                key = msg.get("key", "")
+                if key:
+                    input_handler.key_press(key, "down")
+
+            elif msg_type == "key_up":
+                key = msg.get("key", "")
+                if key:
+                    input_handler.key_press(key, "up")
 
             elif msg_type == "hotkey":
                 keys = msg.get("keys", [])
