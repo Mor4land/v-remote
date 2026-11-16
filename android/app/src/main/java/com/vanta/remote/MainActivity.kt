@@ -5,6 +5,9 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import com.vanta.remote.network.UdpClient
 import com.vanta.remote.network.VideoStreamClient
@@ -22,6 +25,11 @@ class MainActivity : ComponentActivity() {
 
         // Keep screen awake during remote session
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        // Immersive Fullscreen: Hide Status Bar (time, battery) and Navigation Bar
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller.hide(WindowInsetsCompat.Type.systemBars())
 
         udpClient = UdpClient(lifecycleScope)
         videoClient = VideoStreamClient(lifecycleScope)
