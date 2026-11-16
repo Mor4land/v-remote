@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#0d0f12">
+  <meta name="theme-color" content="#090a0f">
   <title>V-Remote Desktop</title>
   <style>
     * {
@@ -18,11 +18,12 @@
     }
 
     body {
-      background: #000;
+      background: #090a0f;
       color: #e2e8f0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       height: 100vh;
       height: 100dvh;
+      width: 100vw;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -39,89 +40,109 @@
       align-items: center;
       justify-content: center;
       padding: 24px;
-      z-index: 1000;
+      z-index: 2000;
     }
 
     .auth-box {
       width: 100%;
       max-width: 340px;
-      background: #171b22;
+      background: #161b26;
       border: 1px solid #2d3748;
       border-radius: 16px;
-      padding: 28px 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
       text-align: center;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
 
     .auth-title {
       font-size: 20px;
       font-weight: 700;
-      color: #f7fafc;
+      margin-bottom: 6px;
+      color: #fff;
     }
 
     .auth-subtitle {
       font-size: 13px;
-      color: #a0aec0;
+      color: #94a3b8;
+      margin-bottom: 20px;
     }
 
-    .auth-input {
-      background: #0d0f12;
-      border: 2px solid #4a5568;
-      border-radius: 10px;
+    .pin-input {
+      width: 100%;
+      background: #0b0e14;
+      border: 1px solid #334155;
       color: #fff;
       font-size: 24px;
       text-align: center;
       padding: 12px;
+      border-radius: 10px;
       letter-spacing: 6px;
-      font-weight: bold;
       outline: none;
+      margin-bottom: 16px;
+      transition: border-color 0.2s;
     }
-    .auth-input:focus {
+
+    .pin-input:focus {
       border-color: #3b82f6;
     }
 
-    .auth-btn {
+    .btn-submit {
+      width: 100%;
       background: #2563eb;
       color: #fff;
       border: none;
-      border-radius: 10px;
-      padding: 14px;
-      font-size: 16px;
+      padding: 12px;
+      font-size: 15px;
       font-weight: 600;
+      border-radius: 10px;
       cursor: pointer;
     }
-    .auth-btn:active {
-      background: #1d4ed8;
-    }
 
-    #auth-error {
+    .auth-error {
       color: #ef4444;
       font-size: 13px;
+      margin-top: 12px;
       display: none;
     }
 
-    /* Top Bar */
+    /* Main App Layout */
+    #app-container {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: #090a0f;
+    }
+
+    /* Floating Header */
     header {
-      height: 44px;
-      background: #141820;
+      position: absolute;
+      top: 8px;
+      left: 10px;
+      right: 10px;
+      height: 38px;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 0 10px;
-      border-bottom: 1px solid #222938;
-      flex-shrink: 0;
-      z-index: 50;
+      z-index: 100;
+      transition: opacity 0.3s, transform 0.3s;
     }
 
-    .status-badge {
+    .header-status {
       display: flex;
       align-items: center;
       gap: 6px;
-      font-size: 11px;
+      font-size: 12px;
       color: #94a3b8;
+      font-weight: 500;
     }
 
     .status-dot {
@@ -139,19 +160,20 @@
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
     }
 
     .icon-btn {
-      background: #1e2433;
-      border: 1px solid #334155;
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.15);
       color: #cbd5e1;
       border-radius: 8px;
-      padding: 6px 9px;
+      padding: 5px 9px;
       font-size: 11px;
+      font-weight: 500;
       display: flex;
       align-items: center;
-      gap: 3px;
+      gap: 4px;
       cursor: pointer;
     }
     .icon-btn:active, .icon-btn.active {
@@ -160,373 +182,457 @@
       border-color: #3b82f6;
     }
 
-    .win-btn {
-      background: #1e3a8a;
-      border-color: #3b82f6;
-      color: #bfdbfe;
-      font-weight: 700;
-      font-size: 12px;
-      padding: 6px 10px;
-    }
-    .win-btn:active {
-      background: #3b82f6;
-      color: #fff;
-    }
-
-    /* Quick Toolbar */
-    .quick-bar {
+    /* Desktop Viewport Canvas */
+    #viewport-wrapper {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      height: 100%;
       display: flex;
-      overflow-x: auto;
-      background: #10131a;
-      padding: 5px 8px;
-      gap: 6px;
-      border-bottom: 1px solid #1e2533;
-      flex-shrink: 0;
-      scrollbar-width: none;
-      z-index: 50;
-    }
-    .quick-bar::-webkit-scrollbar {
-      display: none;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      padding: 6px;
     }
 
-    .key-btn {
-      background: #1c2230;
-      border: 1px solid #2e384d;
+    #desktop-frame {
+      position: relative;
+      max-width: calc(100% - 12px);
+      max-height: calc(100% - 12px);
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: crosshair;
+    }
+
+    #stream-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      pointer-events: none;
+    }
+
+    /* On-Screen Virtual Buttons Layer */
+    #buttons-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 80;
+    }
+
+    .virtual-btn {
+      position: absolute;
+      pointer-events: auto;
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+      font-size: 12px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+      cursor: pointer;
+      user-select: none;
+      transform: translate(-50%, -50%);
+      touch-action: none;
+    }
+
+    .virtual-btn:active, .virtual-btn.active-press {
+      background: rgba(37, 99, 235, 0.85);
+      border-color: #60a5fa;
+      transform: translate(-50%, -50%) scale(0.96);
+    }
+
+    /* Edit Mode Styling */
+    .edit-mode .virtual-btn {
+      border: 2px dashed #3b82f6 !important;
+      background: rgba(30, 41, 59, 0.85) !important;
+      cursor: move;
+    }
+    .edit-mode .virtual-btn.selected {
+      border-color: #ef4444 !important;
+      background: rgba(239, 68, 68, 0.3) !important;
+    }
+
+    .btn-delete-tag {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #ef4444;
+      color: #fff;
+      font-size: 12px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    }
+    .edit-mode .selected .btn-delete-tag {
+      display: flex;
+    }
+
+    /* Edit Toolbar */
+    #edit-toolbar {
+      position: absolute;
+      top: 52px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(22, 27, 38, 0.95);
+      border: 1px solid #3b82f6;
+      border-radius: 12px;
+      padding: 6px 12px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      z-index: 110;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+    }
+
+    /* Floating Hotkeys Drawer */
+    #bottom-dock {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 16px;
+      padding: 6px 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      max-width: 96%;
+      overflow-x: auto;
+      z-index: 90;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+    }
+
+    .dock-btn {
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.12);
       color: #e2e8f0;
-      border-radius: 6px;
-      padding: 5px 10px;
+      border-radius: 8px;
+      padding: 6px 10px;
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 600;
       white-space: nowrap;
       cursor: pointer;
     }
-    .key-btn:active {
-      background: #3b82f6;
-      color: #fff;
-    }
-
-    /* Screen Container */
-    #viewport {
-      flex: 1;
-      position: relative;
-      background: #000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      touch-action: none;
-      overflow: hidden;
-    }
-
-    #screen-canvas {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      display: block;
-      background: #000;
-      pointer-events: none;
-    }
-
-    #touch-surface {
-      position: absolute;
-      inset: 0;
-      touch-action: none;
-      z-index: 20;
-    }
-
-    #fps-meter {
-      position: absolute;
-      top: 8px;
-      left: 8px;
-      background: rgba(0,0,0,0.6);
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 10px;
-      color: #10b981;
-      pointer-events: none;
-      z-index: 30;
-    }
-
-    /* Mode Banner */
-    #mode-banner {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      background: rgba(37, 99, 235, 0.85);
-      color: #fff;
-      font-size: 10px;
-      font-weight: 600;
-      padding: 3px 8px;
-      border-radius: 6px;
-      pointer-events: none;
-      z-index: 30;
-    }
-
-    /* Drag Mode Indicator */
-    #drag-indicator {
-      position: absolute;
-      top: 8px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(239, 68, 68, 0.9);
-      color: #fff;
-      font-size: 10px;
-      font-weight: 700;
-      padding: 3px 10px;
-      border-radius: 12px;
-      display: none;
-      z-index: 30;
-    }
-
-    /* Scroll Rail */
-    .scroll-rail {
-      position: absolute;
-      right: 0;
-      top: 0;
-      bottom: 0;
-      width: 36px;
-      background: rgba(255, 255, 255, 0.04);
-      border-left: 1px dashed rgba(255, 255, 255, 0.15);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: #64748b;
-      font-size: 9px;
-      writing-mode: vertical-rl;
-      pointer-events: none;
-      z-index: 25;
-    }
-
-    /* Bottom Mouse Buttons */
-    .mouse-bar {
-      height: 60px;
-      background: #141820;
-      border-top: 1px solid #222938;
-      display: grid;
-      grid-template-columns: 1fr 50px 1fr;
-      gap: 6px;
-      padding: 5px 8px;
-      flex-shrink: 0;
-      z-index: 50;
-    }
-
-    .mouse-btn {
-      background: #1e2433;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      color: #f1f5f9;
-      font-size: 14px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-    }
-    .mouse-btn:active, .mouse-btn.active {
-      background: #3b82f6;
-      color: #fff;
-      border-color: #60a5fa;
-    }
-
-    .mouse-btn.mid {
-      font-size: 10px;
-      color: #94a3b8;
-    }
-
-    /* Hidden native keyboard helper */
-    #hidden-input {
-      position: absolute;
-      opacity: 0;
-      pointer-events: none;
-      top: -100px;
-      left: 0;
-    }
-
-    /* Text Modal */
-    #text-modal {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.7);
-      z-index: 500;
-      align-items: flex-end;
-    }
-    #text-modal.active {
-      display: flex;
-    }
-    .text-modal-content {
-      width: 100%;
-      background: #171b22;
-      border-radius: 16px 16px 0 0;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .text-area {
-      width: 100%;
-      background: #0d0f12;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      color: #fff;
-      font-size: 16px;
-      padding: 10px;
-      outline: none;
-      resize: none;
-      height: 70px;
-    }
-    .modal-actions {
-      display: flex;
-      gap: 8px;
-    }
-    .modal-btn {
-      flex: 1;
-      padding: 10px;
-      border-radius: 8px;
-      border: none;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .modal-btn.send {
+    .dock-btn:active {
       background: #2563eb;
       color: #fff;
     }
-    .modal-btn.cancel {
-      background: #334155;
-      color: #cbd5e1;
+    .dock-btn.primary {
+      background: #1e3a8a;
+      border-color: #3b82f6;
+      color: #93c5fd;
+    }
+
+    /* Text Typing Dialog */
+    #text-dialog, #add-button-dialog {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 1500;
+    }
+
+    .modal-box {
+      width: 100%;
+      max-width: 360px;
+      background: #161b26;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+
+    .modal-input {
+      width: 100%;
+      background: #0b0e14;
+      border: 1px solid #334155;
+      color: #fff;
+      font-size: 15px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      outline: none;
+      margin-bottom: 14px;
+    }
+    .modal-input:focus {
+      border-color: #3b82f6;
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      max-height: 160px;
+      overflow-y: auto;
+      margin-bottom: 14px;
+    }
+
+    .preset-chip {
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #fff;
+      border-radius: 6px;
+      padding: 8px 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+    }
+    .preset-chip.active {
+      background: #2563eb;
+      border-color: #60a5fa;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    /* Hidden input for mobile keyboard */
+    #hidden-keyboard-input {
+      position: absolute;
+      top: -100px;
+      left: -100px;
+      opacity: 0;
+      pointer-events: none;
     }
   </style>
 </head>
 <body>
 
+  <!-- Hidden text input for native mobile soft keyboard -->
+  <input type="text" id="hidden-keyboard-input" autocomplete="off" autocapitalize="off" spellcheck="false">
+
   <!-- Auth Screen -->
   <div id="auth-screen">
     <div class="auth-box">
       <div class="auth-title">V-Remote Desktop</div>
-      <div class="auth-subtitle">Введите PIN-код сервера ПК</div>
-      <input type="password" id="pin-input" class="auth-input" maxlength="8" placeholder="••••" inputmode="numeric" autocomplete="one-time-code">
-      <button id="btn-login" class="auth-btn">Подключиться к экрану</button>
-      <div id="auth-error">Неверный PIN или сервер недоступен</div>
+      <div class="auth-subtitle">Введите PIN для подключения</div>
+      <input type="password" id="pin-input" class="pin-input" maxlength="8" placeholder="••••" pattern="[0-9]*" inputmode="numeric">
+      <button id="btn-login" class="btn-submit">Войти</button>
+      <div id="auth-error" class="auth-error">Неверный PIN</div>
     </div>
   </div>
 
-  <!-- Top Bar -->
-  <header>
-    <div class="status-badge">
-      <div id="status-dot" class="status-dot"></div>
-      <span id="status-text">Подключение...</span>
+  <!-- Main Container -->
+  <div id="app-container">
+
+    <!-- Top Header Bar -->
+    <header id="main-header">
+      <div class="header-status">
+        <div id="status-dot" class="status-dot"></div>
+        <span id="status-text">Подключение...</span>
+        <span id="fps-meter" style="color: #60a5fa; margin-left: 4px;">0 FPS</span>
+        <span id="input-indicator" style="font-size: 11px; color: #34d399; margin-left: 6px; opacity: 0; transition: opacity 0.1s; font-weight: bold;" title="Передача ввода">⚡</span>
+      </div>
+
+      <div class="header-actions">
+        <button id="btn-mode-touch" class="icon-btn active" title="Режим клика">🎯 Сенсор</button>
+        <button id="btn-mode-pad" class="icon-btn" title="Режим тачпада">🖱️ Тачпад</button>
+        <button id="btn-toggle-editor" class="icon-btn" title="Редактор кнопок">✏️ Редактор</button>
+        <button id="btn-open-keyboard" class="icon-btn" title="Клавиатура">⌨️ Клавиатура</button>
+        <button id="btn-rotate" class="icon-btn" title="Повернуть / Полный экран">🔄 16:9</button>
+      </div>
+    </header>
+
+    <!-- Edit Mode Floating Toolbar -->
+    <div id="edit-toolbar">
+      <span style="font-size: 12px; font-weight: bold; color: #60a5fa;">✏️ Редактор</span>
+      <button id="btn-add-button" class="icon-btn" style="background: #2563eb; color: #fff;">+ Кнопка</button>
+      <button id="btn-reset-layout" class="icon-btn">Сброс</button>
+      <button id="btn-done-edit" class="icon-btn" style="background: #10b981; color: #fff;">✓ Готово</button>
     </div>
-    <div class="header-actions">
-      <button id="btn-win" class="icon-btn win-btn" title="Меню Пуск">⊞ Win</button>
-      <button id="btn-mode" class="icon-btn" title="Сменить режим">🎯 Сенсор</button>
-      <button id="btn-drag" class="icon-btn" title="Зажать ЛКМ">Удержание</button>
-      <button id="btn-kb-text" class="icon-btn" title="Ввод текста">Текст</button>
-      <button id="btn-kb-raw" class="icon-btn" title="Клавиатура">⌨️</button>
+
+    <!-- Viewport with 16:9 Desktop Frame -->
+    <div id="viewport-wrapper">
+      <div id="desktop-frame">
+        <canvas id="stream-canvas" width="1280" height="720"></canvas>
+        <!-- Virtual Buttons Layer -->
+        <div id="buttons-overlay"></div>
+      </div>
     </div>
-  </header>
 
-  <!-- Quick Key Bar -->
-  <div class="quick-bar">
-    <button class="key-btn" data-key="meta" style="background:#1e3a8a;border-color:#3b82f6;color:#93c5fd;font-weight:700;">⊞ Win</button>
-    <button class="key-btn" data-hotkey="meta,d">Win+D</button>
-    <button class="key-btn" data-key="escape">Esc</button>
-    <button class="key-btn" data-key="tab">Tab</button>
-    <button class="key-btn" data-key="enter">Enter</button>
-    <button class="key-btn" data-key="backspace">⌫ Del</button>
-    <button class="key-btn" data-hotkey="alt,tab">Alt+Tab</button>
-    <button class="key-btn" data-hotkey="control,c">Ctrl+C</button>
-    <button class="key-btn" data-hotkey="control,v">Ctrl+V</button>
-    <button class="key-btn" data-key="arrowup">▲</button>
-    <button class="key-btn" data-key="arrowdown">▼</button>
-    <button class="key-btn" data-key="arrowleft">◄</button>
-    <button class="key-btn" data-key="arrowright">►</button>
-    <button class="key-btn" data-key="volumeup">Vol +</button>
-    <button class="key-btn" data-key="volumedown">Vol -</button>
-    <button class="key-btn" data-key="volumemute">Mute</button>
+    <!-- Bottom Dock with Hotkeys -->
+    <div id="bottom-dock">
+      <button class="dock-btn primary" id="btn-key-win">⊞ Win</button>
+      <button class="dock-btn" id="btn-key-wind">Win+D</button>
+      <button class="dock-btn" id="btn-key-esc">Esc</button>
+      <button class="dock-btn" id="btn-key-tab">Tab</button>
+      <button class="dock-btn" id="btn-key-enter">Enter</button>
+      <button class="dock-btn" id="btn-key-del">⌫ Del</button>
+      <button class="dock-btn" id="btn-key-text">📝 Текст</button>
+      <button class="dock-btn" id="btn-key-alttab">Alt+Tab</button>
+      <button class="dock-btn" id="btn-key-ctrlz">Ctrl+Z</button>
+      <button class="dock-btn" id="btn-toggle-buttons">🎮 Скрыть кнопки</button>
+    </div>
   </div>
 
-  <!-- Main Viewport with Screen Stream -->
-  <div id="viewport">
-    <canvas id="screen-canvas" width="1280" height="720"></canvas>
-    <div id="touch-surface"></div>
-    <div id="fps-meter">0 FPS</div>
-    <div id="mode-banner">СЕНСОР (КЛИК ПО ЭКРАНУ)</div>
-    <div id="drag-indicator">ЛКМ ЗАЖАТА (DRAG)</div>
-    <div class="scroll-rail">СКРОЛЛ</div>
-  </div>
-
-  <!-- Bottom Mouse Buttons -->
-  <div class="mouse-bar">
-    <button id="btn-lmb" class="mouse-btn">ЛЕВАЯ (ЛКМ)</button>
-    <button id="btn-mmb" class="mouse-btn mid">КОЛЕСО</button>
-    <button id="btn-rmb" class="mouse-btn">ПРАВАЯ (ПКМ)</button>
-  </div>
-
-  <input type="text" id="hidden-input" autocomplete="off" autocapitalize="off" spellcheck="false">
-
-  <!-- Text Input Modal -->
-  <div id="text-modal">
-    <div class="text-modal-content">
-      <div style="font-weight:600;font-size:14px;">Отправить текст на ПК:</div>
-      <textarea id="text-content" class="text-area" placeholder="Напишите текст на любом языке..."></textarea>
+  <!-- Text Input Modal (Full Unicode, Russian/English) -->
+  <div id="text-dialog">
+    <div class="modal-box">
+      <div class="modal-title">Отправить текст на ПК</div>
+      <input type="text" id="type-text-input" class="modal-input" placeholder="Любой текст, ссылка, пароль...">
       <div class="modal-actions">
-        <button id="btn-send-text" class="modal-btn send">Отправить</button>
-        <button id="btn-cancel-text" class="modal-btn cancel">Отмена</button>
+        <button id="btn-cancel-text" class="dock-btn">Отмена</button>
+        <button id="btn-send-text" class="dock-btn primary" style="background: #2563eb; color: #fff;">Отправить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Button Modal -->
+  <div id="add-button-dialog">
+    <div class="modal-box">
+      <div class="modal-title">Добавить кнопку</div>
+      <div style="font-size: 12px; color: #94a3b8; margin-bottom: 8px;">Выберите клавишу:</div>
+      <div class="preset-grid" id="preset-grid"></div>
+      <div class="modal-actions">
+        <button id="btn-cancel-add" class="dock-btn">Отмена</button>
+        <button id="btn-confirm-add" class="dock-btn primary" style="background: #2563eb; color: #fff;">Добавить</button>
       </div>
     </div>
   </div>
 
   <script>
+    // State & Config
+    let token = localStorage.getItem('v_remote_token') || '7373';
     let ws = null;
-    let token = localStorage.getItem('v_remote_token') || '';
-    let isDirectTouch = true; // true: Direct Touch (tap on screen), false: Trackpad (relative cursor move)
-    let isDragMode = false;
+    let controlMode = 'direct'; // 'direct' or 'trackpad'
+    let isEditMode = false;
+    let showButtons = true;
+    let selectedBtnId = null;
 
-    // Elements
+    let frameCount = 0;
+    let lastFpsUpdate = Date.now();
+
+    // DOM Elements
     const authScreen = document.getElementById('auth-screen');
     const pinInput = document.getElementById('pin-input');
     const btnLogin = document.getElementById('btn-login');
     const authError = document.getElementById('auth-error');
+
     const statusDot = document.getElementById('status-dot');
     const statusText = document.getElementById('status-text');
-    const viewport = document.getElementById('viewport');
-    const canvas = document.getElementById('screen-canvas');
-    const ctx = canvas.getContext('2d');
-    const touchSurface = document.getElementById('touch-surface');
     const fpsMeter = document.getElementById('fps-meter');
-    const modeBanner = document.getElementById('mode-banner');
-    const btnMode = document.getElementById('btn-mode');
-    const btnWin = document.getElementById('btn-win');
-    const btnDrag = document.getElementById('btn-drag');
-    const dragIndicator = document.getElementById('drag-indicator');
-    const btnLmb = document.getElementById('btn-lmb');
-    const btnMmb = document.getElementById('btn-mmb');
-    const btnRmb = document.getElementById('btn-rmb');
-    const hiddenInput = document.getElementById('hidden-input');
-    const btnKbRaw = document.getElementById('btn-kb-raw');
-    const btnKbText = document.getElementById('btn-kb-text');
-    const textModal = document.getElementById('text-modal');
-    const textContent = document.getElementById('text-content');
+    const canvas = document.getElementById('stream-canvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const desktopFrame = document.getElementById('desktop-frame');
+    const buttonsOverlay = document.getElementById('buttons-overlay');
+    const editToolbar = document.getElementById('edit-toolbar');
+
+    const btnModeTouch = document.getElementById('btn-mode-touch');
+    const btnModePad = document.getElementById('btn-mode-pad');
+    const btnToggleEditor = document.getElementById('btn-toggle-editor');
+    const btnOpenKeyboard = document.getElementById('btn-open-keyboard');
+    const btnRotate = document.getElementById('btn-rotate');
+
+    const btnAddButton = document.getElementById('btn-add-button');
+    const btnResetLayout = document.getElementById('btn-reset-layout');
+    const btnDoneEdit = document.getElementById('btn-done-edit');
+
+    const hiddenKeyboardInput = document.getElementById('hidden-keyboard-input');
+    const textDialog = document.getElementById('text-dialog');
+    const typeTextInput = document.getElementById('type-text-input');
     const btnSendText = document.getElementById('btn-send-text');
     const btnCancelText = document.getElementById('btn-cancel-text');
 
-    // FPS calculation
-    let frameCount = 0;
-    let lastFpsUpdate = Date.now();
+    const addButtonDialog = document.getElementById('add-button-dialog');
+    const presetGrid = document.getElementById('preset-grid');
+    const btnConfirmAdd = document.getElementById('btn-confirm-add');
+    const btnCancelAdd = document.getElementById('btn-cancel-add');
+    const btnToggleButtons = document.getElementById('btn-toggle-buttons');
+    const inputIndicator = document.getElementById('input-indicator');
 
+    // Default Buttons Layout
+    const DEFAULT_BUTTONS = [
+      { id: 'w', label: 'W', key: 'w', isMouse: false, rx: 0.14, ry: 0.58, size: 50 },
+      { id: 'a', label: 'A', key: 'a', isMouse: false, rx: 0.07, ry: 0.70, size: 50 },
+      { id: 's', label: 'S', key: 's', isMouse: false, rx: 0.14, ry: 0.70, size: 50 },
+      { id: 'd', label: 'D', key: 'd', isMouse: false, rx: 0.21, ry: 0.70, size: 50 },
+      { id: 'shift', label: 'Shift', key: 'shift', isMouse: false, rx: 0.07, ry: 0.83, size: 50 },
+      { id: 'space', label: 'Space', key: 'space', isMouse: false, rx: 0.18, ry: 0.83, size: 56 },
+      { id: 'lmb', label: 'ЛКМ', key: 'left', isMouse: true, rx: 0.82, ry: 0.70, size: 56 },
+      { id: 'rmb', label: 'ПКМ', key: 'right', isMouse: true, rx: 0.91, ry: 0.60, size: 52 },
+      { id: 'e', label: 'E', key: 'e', isMouse: false, rx: 0.76, ry: 0.58, size: 48 },
+      { id: 'f', label: 'F', key: 'f', isMouse: false, rx: 0.84, ry: 0.48, size: 48 },
+      { id: 'esc', label: 'Esc', key: 'esc', isMouse: false, rx: 0.92, ry: 0.16, size: 44 }
+    ];
+
+    let customButtons = loadButtons();
+
+    function loadButtons() {
+      try {
+        const saved = localStorage.getItem('v_remote_buttons_web');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+      return JSON.parse(JSON.stringify(DEFAULT_BUTTONS));
+    }
+
+    function saveButtons() {
+      localStorage.setItem('v_remote_buttons_web', JSON.stringify(customButtons));
+    }
+
+    // Vibration helper
     function vibrate(ms = 25) {
       if (navigator.vibrate) navigator.vibrate(ms);
     }
 
+    // Wake Lock
     async function requestWakeLock() {
       try {
         if ('wakeLock' in navigator) await navigator.wakeLock.request('screen');
       } catch (e) {}
     }
 
+    // Input activity indicator pulse
+    let indicatorTimer = null;
+    function pulseInputIndicator() {
+      if (!inputIndicator) return;
+      inputIndicator.style.opacity = '1';
+      clearTimeout(indicatorTimer);
+      indicatorTimer = setTimeout(() => {
+        inputIndicator.style.opacity = '0';
+      }, 100);
+    }
+
+    // WebSocket Sender
     function sendPayload(type, data = {}) {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type, ...data }));
+        pulseInputIndicator();
       }
     }
 
@@ -541,18 +647,18 @@
 
       ws.onopen = () => {
         statusDot.classList.add('connected');
-        statusText.textContent = 'Экран активен';
+        statusText.textContent = 'Подключено';
         authScreen.style.display = 'none';
         requestWakeLock();
       };
 
-      ws.onmessage = async (e) => {
-        // Binary frame = Screen JPEG
+      ws.onmessage = (e) => {
         if (e.data instanceof Blob) {
-          try {
-            const bitmap = await createImageBitmap(e.data);
-            ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-            bitmap.close();
+          const url = URL.createObjectURL(e.data);
+          const img = new Image();
+          img.onload = () => {
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            URL.revokeObjectURL(url);
 
             frameCount++;
             const now = Date.now();
@@ -561,11 +667,12 @@
               frameCount = 0;
               lastFpsUpdate = now;
             }
-          } catch (err) {}
+          };
+          img.onerror = () => URL.revokeObjectURL(url);
+          img.src = url;
           return;
         }
 
-        // Text control messages
         try {
           const msg = JSON.parse(e.data);
           if (msg.type === 'auth_ok') {
@@ -574,239 +681,477 @@
           } else if (msg.type === 'auth_error') {
             authError.textContent = msg.message || 'Ошибка авторизации';
             authError.style.display = 'block';
-            authScreen.style.display = 'flex';
           }
         } catch (err) {}
       };
 
-      ws.onclose = (e) => {
+      ws.onclose = () => {
         statusDot.classList.remove('connected');
-        statusText.textContent = 'Отключено';
-        if (e.code === 4001) {
-          authError.textContent = 'Неверный PIN-код';
-          authError.style.display = 'block';
-          authScreen.style.display = 'flex';
-        } else {
-          setTimeout(connectWs, 2000);
-        }
+        statusText.textContent = 'Офлайн';
+        fpsMeter.textContent = '0 FPS';
+        setTimeout(connectWs, 2000);
       };
 
       ws.onerror = () => ws.close();
     }
 
-    // Auth
+    // Authentication Init
+    pinInput.value = token;
     btnLogin.addEventListener('click', () => {
-      const val = pinInput.value.trim();
-      if (!val) return;
-      token = val;
+      token = pinInput.value.trim();
       authError.style.display = 'none';
       connectWs();
     });
-
     pinInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') btnLogin.click();
     });
 
-    if (token) {
-      connectWs();
-    } else {
-      authScreen.style.display = 'flex';
-    }
+    if (token) connectWs();
 
-    btnWin.addEventListener('click', () => {
-      vibrate(30);
-      sendPayload('key_tap', { key: 'meta' });
-    });
+    // Render Virtual Buttons
+    function renderButtons() {
+      buttonsOverlay.innerHTML = '';
+      if (!showButtons) return;
 
-    // Toggle Mode: Direct Touch vs Trackpad
-    btnMode.addEventListener('click', () => {
-      isDirectTouch = !isDirectTouch;
-      if (isDirectTouch) {
-        btnMode.textContent = '🎯 Сенсор';
-        modeBanner.textContent = 'СЕНСОР (КЛИК ПО ЭКРАНУ)';
-        modeBanner.style.background = 'rgba(37, 99, 235, 0.85)';
-      } else {
-        btnMode.textContent = '🖱️ Тачпад';
-        modeBanner.textContent = 'ТАЧПАД (КУРСОР)';
-        modeBanner.style.background = 'rgba(16, 185, 129, 0.85)';
-      }
-      vibrate(30);
-    });
+      const rect = desktopFrame.getBoundingClientRect();
+      const W = rect.width;
+      const H = rect.height;
 
-    // Drag Toggle
-    btnDrag.addEventListener('click', () => {
-      isDragMode = !isDragMode;
-      btnDrag.classList.toggle('active', isDragMode);
-      dragIndicator.style.display = isDragMode ? 'block' : 'none';
-      vibrate(40);
-      sendPayload('mouse_button', { button: 'left', action: isDragMode ? 'down' : 'up' });
-    });
+      customButtons.forEach(btn => {
+        const el = document.createElement('div');
+        el.className = 'virtual-btn' + (isEditMode && selectedBtnId === btn.id ? ' selected' : '');
+        el.style.width = `${btn.size}px`;
+        el.style.height = `${btn.size}px`;
+        el.style.left = `${btn.rx * 100}%`;
+        el.style.top = `${btn.ry * 100}%`;
+        el.textContent = btn.label;
 
-    // Mouse Buttons
-    function setupHoldBtn(btn, buttonName) {
-      const start = (e) => {
-        e.preventDefault();
-        vibrate(30);
-        btn.classList.add('active');
-        sendPayload('mouse_button', { button: buttonName, action: 'down' });
-      };
-      const end = (e) => {
-        e.preventDefault();
-        btn.classList.remove('active');
-        sendPayload('mouse_button', { button: buttonName, action: 'up' });
-      };
-      btn.addEventListener('pointerdown', start);
-      btn.addEventListener('pointerup', end);
-      btn.addEventListener('pointercancel', end);
-    }
+        // Delete tag
+        const delTag = document.createElement('div');
+        delTag.className = 'btn-delete-tag';
+        delTag.innerHTML = '✕';
+        delTag.addEventListener('pointerdown', (e) => {
+          e.stopPropagation();
+          customButtons = customButtons.filter(b => b.id !== btn.id);
+          saveButtons();
+          renderButtons();
+        });
+        el.appendChild(delTag);
 
-    setupHoldBtn(btnLmb, 'left');
-    setupHoldBtn(btnMmb, 'middle');
-    setupHoldBtn(btnRmb, 'right');
+        if (isEditMode) {
+          // Dragging logic in Edit Mode
+          let startX, startY, origRx, origRy;
+          el.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            selectedBtnId = btn.id;
+            renderButtons();
+            startX = e.clientX;
+            startY = e.clientY;
+            origRx = btn.rx;
+            origRy = btn.ry;
+            el.setPointerCapture(e.pointerId);
 
-    // Quick Keys
-    document.querySelectorAll('.key-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        vibrate(20);
-        const hotkey = btn.dataset.hotkey;
-        const key = btn.dataset.key;
-        if (hotkey) {
-          sendPayload('hotkey', { keys: hotkey.split(',') });
-        } else if (key) {
-          sendPayload('key_tap', { key });
-        }
-      });
-    });
+            const onPointerMove = (me) => {
+              const dx = (me.clientX - startX) / W;
+              const dy = (me.clientY - startY) / H;
+              btn.rx = Math.max(0.04, Math.min(0.96, origRx + dx));
+              btn.ry = Math.max(0.04, Math.min(0.96, origRy + dy));
+              el.style.left = `${btn.rx * 100}%`;
+              el.style.top = `${btn.ry * 100}%`;
+            };
 
-    // Touch Handling on Screen
-    const touches = new Map();
-    let touchStartTime = 0;
-    let hasMoved = false;
+            const onPointerUp = (ue) => {
+              el.removeEventListener('pointermove', onPointerMove);
+              el.removeEventListener('pointerup', onPointerUp);
+              saveButtons();
+            };
 
-    function getNormalizedCoords(clientX, clientY) {
-      const rect = canvas.getBoundingClientRect();
-      const rx = (clientX - rect.left) / rect.width;
-      const ry = (clientY - rect.top) / rect.height;
-      return { rx: Math.max(0, Math.min(1, rx)), ry: Math.max(0, Math.min(1, ry)) };
-    }
-
-    touchSurface.addEventListener('pointerdown', (e) => {
-      touchSurface.setPointerCapture(e.pointerId);
-      touches.set(e.pointerId, { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY });
-
-      if (touches.size === 1) {
-        touchStartTime = Date.now();
-        hasMoved = false;
-
-        if (isDirectTouch) {
-          const { rx, ry } = getNormalizedCoords(e.clientX, e.clientY);
-          sendPayload('mouse_move_abs', { rx, ry });
-          if (isDragMode) {
-            sendPayload('mouse_button', { button: 'left', action: 'down' });
-          }
-        }
-      }
-    });
-
-    touchSurface.addEventListener('pointermove', (e) => {
-      if (!touches.has(e.pointerId)) return;
-
-      const prev = touches.get(e.pointerId);
-      const dx = e.clientX - prev.x;
-      const dy = e.clientY - prev.y;
-
-      touches.set(e.pointerId, { ...prev, x: e.clientX, y: e.clientY });
-
-      if (Math.abs(e.clientX - prev.startX) > 4 || Math.abs(e.clientY - prev.startY) > 4) {
-        hasMoved = true;
-      }
-
-      const rect = touchSurface.getBoundingClientRect();
-      const inScrollRail = (prev.startX > rect.right - 40);
-
-      if (inScrollRail) {
-        // Fast scroll ribbon
-        sendPayload('mouse_scroll', { delta_y: -dy * 0.15 });
-        return;
-      }
-
-      if (isDirectTouch) {
-        // Direct Touch: move to exact position under finger
-        const { rx, ry } = getNormalizedCoords(e.clientX, e.clientY);
-        sendPayload('mouse_move_abs', { rx, ry });
-      } else {
-        // Trackpad mode: relative movement
-        if (touches.size === 1) {
-          sendPayload('mouse_move', { dx: dx * 1.5, dy: dy * 1.5 });
-        } else if (touches.size === 2) {
-          sendPayload('mouse_scroll', { delta_y: -dy * 0.12 });
-        }
-      }
-    });
-
-    function handlePointerUpOrCancel(e) {
-      if (!touches.has(e.pointerId)) return;
-      const countBefore = touches.size;
-      const duration = Date.now() - touchStartTime;
-
-      touches.delete(e.pointerId);
-
-      // Short tap without move = Click
-      if (!hasMoved && duration < 280) {
-        if (isDirectTouch) {
-          const { rx, ry } = getNormalizedCoords(e.clientX, e.clientY);
-          sendPayload('mouse_move_abs', { rx, ry });
-          vibrate(25);
-          sendPayload('mouse_click', { button: 'left' });
+            el.addEventListener('pointermove', onPointerMove);
+            el.addEventListener('pointerup', onPointerUp);
+          });
         } else {
-          if (countBefore === 1 && !isDragMode) {
-            vibrate(25);
-            sendPayload('mouse_click', { button: 'left' });
-          } else if (countBefore === 2) {
-            vibrate(35);
-            sendPayload('mouse_click', { button: 'right' });
-          }
+          // Game Mode Press & Hold Logic
+          el.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            el.classList.add('active-press');
+            vibrate(15);
+
+            if (btn.isMouse) {
+              sendPayload('mouse_button', { button: btn.key, action: 'down' });
+            } else {
+              sendPayload('key_down', { key: btn.key });
+            }
+
+            const onRelease = () => {
+              el.classList.remove('active-press');
+              if (btn.isMouse) {
+                sendPayload('mouse_button', { button: btn.key, action: 'up' });
+              } else {
+                sendPayload('key_up', { key: btn.key });
+              }
+              window.removeEventListener('pointerup', onRelease);
+              window.removeEventListener('pointercancel', onRelease);
+            };
+
+            window.addEventListener('pointerup', onRelease);
+            window.addEventListener('pointercancel', onRelease);
+          });
         }
+
+        buttonsOverlay.appendChild(el);
+      });
+    }
+
+    window.addEventListener('resize', renderButtons);
+
+    // Edit Mode Toggle
+    btnToggleEditor.addEventListener('click', () => {
+      isEditMode = !isEditMode;
+      document.body.classList.toggle('edit-mode', isEditMode);
+      editToolbar.style.display = isEditMode ? 'flex' : 'none';
+      btnToggleEditor.classList.toggle('active', isEditMode);
+      renderButtons();
+    });
+
+    btnDoneEdit.addEventListener('click', () => {
+      isEditMode = false;
+      document.body.classList.remove('edit-mode');
+      editToolbar.style.display = 'none';
+      btnToggleEditor.classList.remove('active');
+      saveButtons();
+      renderButtons();
+    });
+
+    btnResetLayout.addEventListener('click', () => {
+      customButtons = JSON.parse(JSON.stringify(DEFAULT_BUTTONS));
+      saveButtons();
+      renderButtons();
+    });
+
+    // Add Button Modal & Presets
+    const PRESET_KEYS = [
+      { label: 'W', key: 'w' }, { label: 'A', key: 'a' }, { label: 'S', key: 's' }, { label: 'D', key: 'd' },
+      { label: 'Space', key: 'space' }, { label: 'Shift', key: 'shift' }, { label: 'Ctrl', key: 'ctrl' }, { label: 'Alt', key: 'alt' },
+      { label: 'E', key: 'e' }, { label: 'F', key: 'f' }, { label: 'Q', key: 'q' }, { label: 'R', key: 'r' },
+      { label: 'C', key: 'c' }, { label: 'Tab', key: 'tab' }, { label: 'Esc', key: 'esc' }, { label: 'Enter', key: 'enter' },
+      { label: '1', key: '1' }, { label: '2', key: '2' }, { label: '3', key: '3' }, { label: '4', key: '4' },
+      { label: 'ЛКМ', key: 'left', isMouse: true }, { label: 'ПКМ', key: 'right', isMouse: true }
+    ];
+
+    let selectedPreset = PRESET_KEYS[0];
+
+    function buildPresetGrid() {
+      presetGrid.innerHTML = '';
+      PRESET_KEYS.forEach(p => {
+        const chip = document.createElement('div');
+        chip.className = 'preset-chip' + (selectedPreset === p ? ' active' : '');
+        chip.textContent = p.label;
+        chip.addEventListener('click', () => {
+          selectedPreset = p;
+          buildPresetGrid();
+        });
+        presetGrid.appendChild(chip);
+      });
+    }
+
+    btnAddButton.addEventListener('click', () => {
+      buildPresetGrid();
+      addButtonDialog.style.display = 'flex';
+    });
+
+    btnCancelAdd.addEventListener('click', () => {
+      addButtonDialog.style.display = 'none';
+    });
+
+    btnConfirmAdd.addEventListener('click', () => {
+      const newBtn = {
+        id: 'btn_' + Date.now(),
+        label: selectedPreset.label,
+        key: selectedPreset.key,
+        isMouse: !!selectedPreset.isMouse,
+        rx: 0.5,
+        ry: 0.5,
+        size: 52
+      };
+      customButtons.push(newBtn);
+      saveButtons();
+      addButtonDialog.style.display = 'none';
+      renderButtons();
+    });
+
+    // Desktop vs Mobile Detection
+    const isDesktop = !/Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isDesktop) {
+      showButtons = false;
+      document.getElementById('btn-open-keyboard').style.display = 'none';
+      document.getElementById('btn-mode-pad').style.display = 'none';
+      document.getElementById('btn-mode-touch').style.display = 'none';
+      btnToggleButtons.textContent = '🎮 Показать кнопки';
+    }
+
+    // Touch & Mouse Pointer Handling on Desktop Frame
+    let isMouseDown = false;
+    let lastX = 0, lastY = 0;
+    let touchStartTime = 0;
+    let touchStartX = 0, touchStartY = 0;
+    let lastMoveTime = 0;
+
+    desktopFrame.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    function sendThrottledMove(rx, ry) {
+      const now = performance.now();
+      if (now - lastMoveTime >= 15) {
+        lastMoveTime = now;
+        sendPayload('mouse_move_abs', { rx, ry });
       }
     }
 
-    touchSurface.addEventListener('pointerup', handlePointerUpOrCancel);
-    touchSurface.addEventListener('pointercancel', handlePointerUpOrCancel);
+    // Mouse Move on PC & Direct Touch Drag
+    desktopFrame.addEventListener('pointermove', (e) => {
+      if (isEditMode) return;
+      const rect = desktopFrame.getBoundingClientRect();
+      const rx = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const ry = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
 
-    // Keyboard
-    btnKbRaw.addEventListener('click', () => hiddenInput.focus());
+      if (e.pointerType === 'mouse') {
+        // Track hover cursor movement on PC
+        sendThrottledMove(rx, ry);
+      } else if (isMouseDown && controlMode === 'direct') {
+        sendThrottledMove(rx, ry);
+      } else if (isMouseDown && controlMode === 'trackpad') {
+        const dx = (e.clientX - lastX) * 1.5;
+        const dy = (e.clientY - lastY) * 1.5;
+        sendPayload('mouse_move', { dx: Math.round(dx), dy: Math.round(dy) });
+        lastX = e.clientX;
+        lastY = e.clientY;
+      }
+    });
 
-    hiddenInput.addEventListener('keydown', (e) => {
+    desktopFrame.addEventListener('pointerdown', (e) => {
+      if (isEditMode) return;
+      isMouseDown = true;
+      try { desktopFrame.setPointerCapture(e.pointerId); } catch(err) {}
+
+      const rect = desktopFrame.getBoundingClientRect();
+      const rx = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const ry = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+      lastX = e.clientX;
+      lastY = e.clientY;
+      touchStartX = e.clientX;
+      touchStartY = e.clientY;
+      touchStartTime = Date.now();
+
+      sendPayload('mouse_move_abs', { rx, ry });
+
+      // Physical PC Mouse Buttons
+      if (e.pointerType === 'mouse') {
+        const btn = e.button === 2 ? 'right' : (e.button === 1 ? 'middle' : 'left');
+        sendPayload('mouse_button', { button: btn, action: 'down' });
+      }
+    });
+
+    desktopFrame.addEventListener('pointerup', (e) => {
+      if (isEditMode) return;
+      isMouseDown = false;
+      try { desktopFrame.releasePointerCapture(e.pointerId); } catch(err) {}
+
+      const rect = desktopFrame.getBoundingClientRect();
+      const rx = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const ry = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+      const duration = Date.now() - touchStartTime;
+      const movedDist = Math.hypot(e.clientX - touchStartX, e.clientY - touchStartY);
+
+      if (e.pointerType === 'mouse') {
+        const btn = e.button === 2 ? 'right' : (e.button === 1 ? 'middle' : 'left');
+        sendPayload('mouse_button', { button: btn, action: 'up' });
+      } else if (controlMode === 'direct') {
+        // Touch screen tap / long press
+        if (duration < 350 && movedDist < 20) {
+          vibrate(20);
+          sendPayload('mouse_move_abs', { rx, ry });
+          sendPayload('mouse_click', { button: 'left' });
+        } else if (duration >= 600 && movedDist < 20) {
+          vibrate(40);
+          sendPayload('mouse_move_abs', { rx, ry });
+          sendPayload('mouse_click', { button: 'right' });
+        }
+      } else if (controlMode === 'trackpad') {
+        if (duration < 250 && movedDist < 10) {
+          vibrate(20);
+          sendPayload('mouse_click', { button: 'left' });
+        }
+      }
+    });
+
+    desktopFrame.addEventListener('pointercancel', (e) => {
+      isMouseDown = false;
+      try { desktopFrame.releasePointerCapture(e.pointerId); } catch(err) {}
+    });
+
+    // Mouse Wheel Scroll (PC)
+    desktopFrame.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const deltaY = e.deltaY > 0 ? -1 : 1;
+      sendPayload('mouse_scroll', { delta_y: deltaY });
+    }, { passive: false });
+
+    // Mode Buttons
+    btnModeTouch.addEventListener('click', () => {
+      controlMode = 'direct';
+      btnModeTouch.classList.add('active');
+      btnModePad.classList.remove('active');
+    });
+
+    btnModePad.addEventListener('click', () => {
+      controlMode = 'trackpad';
+      btnModePad.classList.add('active');
+      btnModeTouch.classList.remove('active');
+    });
+
+    // Fullscreen / 16:9
+    btnRotate.addEventListener('click', async () => {
+      vibrate(25);
+      try {
+        if (!document.fullscreenElement) {
+          await document.documentElement.requestFullscreen();
+          if (screen.orientation && screen.orientation.lock) {
+            await screen.orientation.lock('landscape');
+          }
+        } else {
+          await document.exitFullscreen();
+        }
+      } catch (e) {}
+    });
+
+    // Mobile Virtual Soft Keyboard Input Fix
+    btnOpenKeyboard.addEventListener('click', () => {
+      hiddenKeyboardInput.focus();
+      hiddenKeyboardInput.click();
+    });
+
+    hiddenKeyboardInput.addEventListener('input', (e) => {
+      const val = hiddenKeyboardInput.value;
+      if (val) {
+        sendPayload('type_text', { text: val });
+        hiddenKeyboardInput.value = '';
+      }
+    });
+
+    hiddenKeyboardInput.addEventListener('keydown', (e) => {
       if (e.key === 'Backspace') {
         sendPayload('key_tap', { key: 'backspace' });
       } else if (e.key === 'Enter') {
         sendPayload('key_tap', { key: 'enter' });
-      } else if (e.key === 'Tab') {
-        sendPayload('key_tap', { key: 'tab' });
-      } else if (e.key.length === 1) {
-        sendPayload('type_text', { text: e.key });
       }
     });
 
-    // Text Modal
-    btnKbText.addEventListener('click', () => {
-      textModal.classList.add('active');
-      textContent.value = '';
-      setTimeout(() => textContent.focus(), 100);
+    // Full Physical Keyboard Mapping for PC
+    const CODE_TO_KEY = {
+      'KeyW': 'w', 'KeyA': 'a', 'KeyS': 's', 'KeyD': 'd',
+      'KeyQ': 'q', 'KeyE': 'e', 'KeyR': 'r', 'KeyF': 'f',
+      'KeyC': 'c', 'KeyX': 'x', 'KeyZ': 'z', 'KeyV': 'v',
+      'KeyB': 'b', 'KeyN': 'n', 'KeyM': 'm', 'KeyT': 't',
+      'KeyY': 'y', 'KeyU': 'u', 'KeyI': 'i', 'KeyO': 'o', 'KeyP': 'p',
+      'KeyG': 'g', 'KeyH': 'h', 'KeyJ': 'j', 'KeyK': 'k', 'KeyL': 'l',
+      'Digit1': '1', 'Digit2': '2', 'Digit3': '3', 'Digit4': '4',
+      'Digit5': '5', 'Digit6': '6', 'Digit7': '7', 'Digit8': '8', 'Digit9': '9', 'Digit0': '0',
+      'Minus': '-', 'Equal': '=', 'BracketLeft': '[', 'BracketRight': ']', 'Backslash': '\\',
+      'Semicolon': ';', 'Quote': '\'', 'Comma': ',', 'Period': '.', 'Slash': '/', 'Backquote': '`',
+      'Space': 'space', 'ShiftLeft': 'shift', 'ShiftRight': 'shift',
+      'ControlLeft': 'ctrl', 'ControlRight': 'ctrl', 'AltLeft': 'alt', 'AltRight': 'alt',
+      'Tab': 'tab', 'Enter': 'enter', 'Escape': 'esc', 'Backspace': 'backspace', 'Delete': 'del',
+      'ArrowUp': 'arrowup', 'ArrowDown': 'arrowdown', 'ArrowLeft': 'arrowleft', 'ArrowRight': 'arrowright',
+      'MetaLeft': 'win', 'MetaRight': 'win',
+      'F1': 'f1', 'F2': 'f2', 'F3': 'f3', 'F4': 'f4', 'F5': 'f5', 'F6': 'f6',
+      'F7': 'f7', 'F8': 'f8', 'F9': 'f9', 'F10': 'f10', 'F11': 'f11', 'F12': 'f12'
+    };
+
+    const pressedKeys = new Set();
+
+    window.addEventListener('keydown', (e) => {
+      // Don't intercept when modal dialogs or input fields are active
+      if (authScreen.style.display !== 'none' || textDialog.style.display !== 'none' || addButtonDialog.style.display !== 'none') return;
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+
+      const code = e.code;
+
+      // Prevent browser default keys (Space scroll, Tab focus, Alt shortcuts, F1 help, F5 refresh)
+      if (['Space', 'Tab', 'AltLeft', 'AltRight', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'F1', 'F3', 'F5', 'F6', 'F11', 'F12'].includes(code)) {
+        e.preventDefault();
+      }
+
+      const targetKey = CODE_TO_KEY[code] || (e.key && e.key.length === 1 ? e.key.toLowerCase() : null);
+      if (targetKey && !pressedKeys.has(code)) {
+        pressedKeys.add(code);
+        sendPayload('key_down', { key: targetKey });
+      }
     });
 
-    btnCancelText.addEventListener('click', () => textModal.classList.remove('active'));
+    window.addEventListener('keyup', (e) => {
+      if (authScreen.style.display !== 'none' || textDialog.style.display !== 'none' || addButtonDialog.style.display !== 'none') return;
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+
+      const code = e.code;
+      pressedKeys.delete(code);
+
+      const targetKey = CODE_TO_KEY[code] || (e.key && e.key.length === 1 ? e.key.toLowerCase() : null);
+      if (targetKey) {
+        sendPayload('key_up', { key: targetKey });
+      }
+    });
+
+    // Release all keys when window loses focus (prevent sticky keys)
+    window.addEventListener('blur', () => {
+      pressedKeys.forEach(code => {
+        const targetKey = CODE_TO_KEY[code];
+        if (targetKey) sendPayload('key_up', { key: targetKey });
+      });
+      pressedKeys.clear();
+    });
+
+    // Text Sender Dialog (All Unicode languages, Cyrillic, links)
+    const btnKeyText = document.getElementById('btn-key-text');
+    btnKeyText.addEventListener('click', () => {
+      textDialog.style.display = 'flex';
+      typeTextInput.focus();
+    });
+
+    btnCancelText.addEventListener('click', () => {
+      textDialog.style.display = 'none';
+    });
 
     btnSendText.addEventListener('click', () => {
-      const text = textContent.value;
-      if (text) {
-        sendPayload('type_text', { text });
-        vibrate(30);
+      const val = typeTextInput.value;
+      if (val) {
+        sendPayload('type_text', { text: val });
+        typeTextInput.value = '';
       }
-      textModal.classList.remove('active');
+      textDialog.style.display = 'none';
     });
 
-    document.addEventListener('contextmenu', e => e.preventDefault());
+    typeTextInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') btnSendText.click();
+    });
+
+    // Hotkey Dock Listeners
+    document.getElementById('btn-key-win').addEventListener('click', () => sendPayload('key_tap', { key: 'win' }));
+    document.getElementById('btn-key-wind').addEventListener('click', () => sendPayload('hotkey', { keys: ['win', 'd'] }));
+    document.getElementById('btn-key-esc').addEventListener('click', () => sendPayload('key_tap', { key: 'esc' }));
+    document.getElementById('btn-key-tab').addEventListener('click', () => sendPayload('key_tap', { key: 'tab' }));
+    document.getElementById('btn-key-enter').addEventListener('click', () => sendPayload('key_tap', { key: 'enter' }));
+    document.getElementById('btn-key-del').addEventListener('click', () => sendPayload('key_tap', { key: 'backspace' }));
+    document.getElementById('btn-key-alttab').addEventListener('click', () => sendPayload('hotkey', { keys: ['alt', 'tab'] }));
+    document.getElementById('btn-key-ctrlz').addEventListener('click', () => sendPayload('hotkey', { keys: ['ctrl', 'z'] }));
+
+    // Toggle button visibility
+    btnToggleButtons.addEventListener('click', () => {
+      showButtons = !showButtons;
+      btnToggleButtons.textContent = showButtons ? '🎮 Скрыть кнопки' : '🎮 Показать кнопки';
+      renderButtons();
+    });
+
+    // Initial render
+    setTimeout(renderButtons, 200);
   </script>
 </body>
 </html>

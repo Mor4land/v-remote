@@ -218,7 +218,7 @@ async def screen_stream_loop():
                 if tasks:
                     await asyncio.gather(*tasks, return_exceptions=True)
 
-            await asyncio.sleep(0.035)
+            await asyncio.sleep(0.008)
     except asyncio.CancelledError:
         pass
     finally:

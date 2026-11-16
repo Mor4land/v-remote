@@ -37,8 +37,10 @@ VK_MAP = {
     "backspace": 0x08,
     "tab": 0x09,
     "escape": 0x1B,
+    "esc": 0x1B,
     "space": 0x20,
     "delete": 0x2E,
+    "del": 0x2E,
     "home": 0x24,
     "end": 0x23,
     "pageup": 0x21,
@@ -49,8 +51,10 @@ VK_MAP = {
     "arrowdown": 0x28,
     "shift": 0x10,
     "control": 0x11,
+    "ctrl": 0x11,
     "alt": 0x12,
     "meta": 0x5B,       # Win key
+    "win": 0x5B,
     "capslock": 0x14,
     "volumeup": 0xAF,
     "volumedown": 0xAE,
@@ -58,6 +62,19 @@ VK_MAP = {
     "mediaplaypause": 0xB3,
     "medianext": 0xB0,
     "mediaprev": 0xB1,
+    "-": 0xBD,
+    "minus": 0xBD,
+    "=": 0xBB,
+    "equal": 0xBB,
+    "[": 0xDB,
+    "]": 0xDD,
+    "\\": 0xDC,
+    ";": 0xBA,
+    "'": 0xDE,
+    ",": 0xBC,
+    ".": 0xBE,
+    "/": 0xBF,
+    "`": 0xC0,
 }
 
 def mouse_move_relative(dx: int, dy: int):
@@ -125,8 +142,18 @@ def key_press(key_code_or_name: str, action: str = "tap"):
 
     if vk is None:
         if len(key_code_or_name) == 1:
-            type_text(key_code_or_name)
-        return
+            ch = key_code_or_name.upper()
+            if ('A' <= ch <= 'Z') or ('0' <= ch <= '9'):
+                vk = ord(ch)
+            else:
+                type_text(key_code_or_name)
+                return
+        elif key_lower.startswith("f") and key_lower[1:].isdigit():
+            f_num = int(key_lower[1:])
+            if 1 <= f_num <= 12:
+                vk = 0x6F + f_num
+        else:
+            return
 
     if action == "down":
         user32.keybd_event(vk, 0, 0, 0)
