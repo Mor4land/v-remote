@@ -467,6 +467,7 @@
         <button id="btn-toggle-editor" class="icon-btn" title="Редактор кнопок">✏️ Редактор</button>
         <button id="btn-open-keyboard" class="icon-btn" title="Клавиатура">⌨️ Клавиатура</button>
         <button id="btn-rotate" class="icon-btn" title="Повернуть / Полный экран">🔄 16:9</button>
+        <button id="btn-logout" class="icon-btn" style="color: #f87171; border-color: rgba(239, 68, 68, 0.4);" title="Выйти и удалить пароль с этого устройства">🚪 Выход</button>
       </div>
     </header>
 
@@ -499,6 +500,7 @@
       <button class="dock-btn" id="btn-key-alttab">Alt+Tab</button>
       <button class="dock-btn" id="btn-key-ctrlz">Ctrl+Z</button>
       <button class="dock-btn" id="btn-toggle-buttons">🎮 Скрыть кнопки</button>
+      <button class="dock-btn" id="btn-dock-logout" style="color: #f87171;" title="Выйти и сбросить пароль">🚪 Выйти</button>
     </div>
   </div>
 
@@ -529,7 +531,7 @@
 
   <script>
     // State & Config
-    let token = localStorage.getItem('v_remote_token') || '7373';
+    let token = localStorage.getItem('v_remote_token') || '';
     let ws = null;
     let controlMode = 'direct'; // 'direct' or 'trackpad'
     let isEditMode = false;
@@ -560,6 +562,8 @@
     const btnToggleEditor = document.getElementById('btn-toggle-editor');
     const btnOpenKeyboard = document.getElementById('btn-open-keyboard');
     const btnRotate = document.getElementById('btn-rotate');
+    const btnLogout = document.getElementById('btn-logout');
+    const btnDockLogout = document.getElementById('btn-dock-logout');
 
     const btnAddButton = document.getElementById('btn-add-button');
     const btnResetLayout = document.getElementById('btn-reset-layout');
@@ -683,6 +687,10 @@
           } else if (msg.type === 'auth_error') {
             authError.textContent = msg.message || 'Ошибка авторизации';
             authError.style.display = 'block';
+            localStorage.removeItem('v_remote_token');
+            token = '';
+            authScreen.style.display = 'flex';
+            pinInput.value = '';
           }
         } catch (err) {}
       };
@@ -691,16 +699,17 @@
         statusDot.classList.remove('connected');
         statusText.textContent = 'Офлайн';
         fpsMeter.textContent = '0 FPS';
-        setTimeout(connectWs, 2000);
+        if (token) setTimeout(connectWs, 2000);
       };
 
       ws.onerror = () => ws.close();
     }
 
-    // Authentication Init
+    // Authentication Init & Logout
     pinInput.value = token;
     btnLogin.addEventListener('click', () => {
       token = pinInput.value.trim();
+      if (!token) return;
       authError.style.display = 'none';
       connectWs();
     });
@@ -708,7 +717,32 @@
       if (e.key === 'Enter') btnLogin.click();
     });
 
-    if (token) connectWs();
+    function doLogout() {
+      localStorage.removeItem('v_remote_token');
+      token = '';
+      if (ws) ws.close();
+      authScreen.style.display = 'flex';
+      pinInput.value = '';
+      authError.style.display = 'none';
+    }
+
+    btnLogout.addEventListener('click', () => {
+      if (confirm('Выйти из системы и удалить сохранённый пароль на этом устройстве?')) {
+        doLogout();
+      }
+    });
+
+    btnDockLogout.addEventListener('click', () => {
+      if (confirm('Выйти из системы и удалить сохранённый пароль на этом устройстве?')) {
+        doLogout();
+      }
+    });
+
+    if (token) {
+      connectWs();
+    } else {
+      authScreen.style.display = 'flex';
+    }
 
     // Render Virtual Buttons
     function renderButtons() {
