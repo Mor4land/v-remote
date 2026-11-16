@@ -2,6 +2,7 @@ package com.vanta.remote.network
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -10,10 +11,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import okhttp3.*
 import okio.ByteString
+import java.util.concurrent.TimeUnit
 
 class VideoStreamClient(private val scope: CoroutineScope) {
 
-    private val client = OkHttpClient.Builder().build()
+    private val client = OkHttpClient.Builder()
+        .pingInterval(10, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
+        .build()
     private var webSocket: WebSocket? = null
 
     private val _currentFrame = MutableStateFlow<Bitmap?>(null)
@@ -31,9 +36,12 @@ class VideoStreamClient(private val scope: CoroutineScope) {
         val request = Request.Builder().url(url).build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                Log.d("VRemoteVideo", "WebSocket connected to $url")
+            }
+
             override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
                 val data = bytes.toByteArray()
-                // Fast decode options: IN_SAMPLE_SIZE = 1, RGB_565 for high performance
                 val opts = BitmapFactory.Options().apply {
                     inPreferredConfig = Bitmap.Config.RGB_565
                 }
@@ -51,7 +59,7 @@ class VideoStreamClient(private val scope: CoroutineScope) {
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                // Reconnect if needed
+                Log.e("VRemoteVideo", "WebSocket failure: ${t.message}", t)
             }
         })
     }
