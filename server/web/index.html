@@ -461,6 +461,7 @@
       </div>
 
       <div class="header-actions">
+        <button id="btn-pointer-lock" class="icon-btn" title="Захват мыши для 3D игр (Roblox)">🎮 3D Захват</button>
         <button id="btn-mode-touch" class="icon-btn active" title="Режим клика">🎯 Сенсор</button>
         <button id="btn-mode-pad" class="icon-btn" title="Режим тачпада">🖱️ Тачпад</button>
         <button id="btn-toggle-editor" class="icon-btn" title="Редактор кнопок">✏️ Редактор</button>
@@ -555,6 +556,7 @@
 
     const btnModeTouch = document.getElementById('btn-mode-touch');
     const btnModePad = document.getElementById('btn-mode-pad');
+    const btnPointerLock = document.getElementById('btn-pointer-lock');
     const btnToggleEditor = document.getElementById('btn-toggle-editor');
     const btnOpenKeyboard = document.getElementById('btn-open-keyboard');
     const btnRotate = document.getElementById('btn-rotate');
@@ -891,12 +893,35 @@
 
     // Touch & Mouse Pointer Handling on Desktop Frame
     let isMouseDown = false;
+    let isRightMouseDown = false;
+    let isPointerLocked = false;
     let lastX = 0, lastY = 0;
     let touchStartTime = 0;
     let touchStartX = 0, touchStartY = 0;
     let lastMoveTime = 0;
 
     desktopFrame.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // Pointer Lock Handlers for 3D Games (Roblox, Minecraft, etc.)
+    btnPointerLock.addEventListener('click', () => {
+      if (document.pointerLockElement === desktopFrame) {
+        document.exitPointerLock();
+      } else {
+        desktopFrame.requestPointerLock();
+      }
+    });
+
+    document.addEventListener('pointerlockchange', () => {
+      isPointerLocked = (document.pointerLockElement === desktopFrame);
+      btnPointerLock.classList.toggle('active', isPointerLocked);
+      btnPointerLock.textContent = isPointerLocked ? '🎮 3D Активен (Esc)' : '🎮 3D Захват';
+    });
+
+    desktopFrame.addEventListener('dblclick', (e) => {
+      if (!isEditMode && e.pointerType === 'mouse') {
+        desktopFrame.requestPointerLock();
+      }
+    });
 
     function sendThrottledMove(rx, ry) {
       const now = performance.now();
@@ -909,6 +934,29 @@
     // Mouse Move on PC & Direct Touch Drag
     desktopFrame.addEventListener('pointermove', (e) => {
       if (isEditMode) return;
+
+      // 1. If 3D Pointer Lock is active, stream raw hardware movement deltas (Roblox camera look)
+      if (isPointerLocked) {
+        const dx = e.movementX || 0;
+        const dy = e.movementY || 0;
+        if (dx !== 0 || dy !== 0) {
+          sendPayload('mouse_move', { dx: Math.round(dx), dy: Math.round(dy) });
+        }
+        return;
+      }
+
+      // 2. If Right Click is held down on PC (Standard Roblox camera rotation)
+      if (isRightMouseDown && e.pointerType === 'mouse') {
+        const dx = e.movementX || (e.clientX - lastX);
+        const dy = e.movementY || (e.clientY - lastY);
+        if (dx !== 0 || dy !== 0) {
+          sendPayload('mouse_move', { dx: Math.round(dx), dy: Math.round(dy) });
+        }
+        lastX = e.clientX;
+        lastY = e.clientY;
+        return;
+      }
+
       const rect = desktopFrame.getBoundingClientRect();
       const rx = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       const ry = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
@@ -946,6 +994,7 @@
       // Physical PC Mouse Buttons
       if (e.pointerType === 'mouse') {
         const btn = e.button === 2 ? 'right' : (e.button === 1 ? 'middle' : 'left');
+        if (btn === 'right') isRightMouseDown = true;
         sendPayload('mouse_button', { button: btn, action: 'down' });
       }
     });
@@ -963,6 +1012,7 @@
 
       if (e.pointerType === 'mouse') {
         const btn = e.button === 2 ? 'right' : (e.button === 1 ? 'middle' : 'left');
+        if (btn === 'right') isRightMouseDown = false;
         sendPayload('mouse_button', { button: btn, action: 'up' });
       } else if (controlMode === 'direct') {
         // Touch screen tap / long press
@@ -1072,6 +1122,7 @@
       // Don't intercept when modal dialogs or input fields are active
       if (authScreen.style.display !== 'none' || textDialog.style.display !== 'none' || addButtonDialog.style.display !== 'none') return;
       if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+      if (e.repeat) return; // Prevent repeated packet flooding when holding keys (WASD) in games
 
       const code = e.code;
 

@@ -20,6 +20,7 @@ def ensure_default_desktop():
         pass
     return None
 
+MOUSEEVENTF_MOVE = 0x0001
 MOUSEEVENTF_LEFTDOWN = 0x0002
 MOUSEEVENTF_LEFTUP = 0x0004
 MOUSEEVENTF_RIGHTDOWN = 0x0008
@@ -29,10 +30,89 @@ MOUSEEVENTF_MIDDLEUP = 0x0040
 MOUSEEVENTF_WHEEL = 0x0800
 MOUSEEVENTF_HWHEEL = 0x1000
 
+KEYEVENTF_EXTENDEDKEY = 0x0001
 KEYEVENTF_KEYUP = 0x0002
 KEYEVENTF_UNICODE = 0x0004
+KEYEVENTF_SCANCODE = 0x0008
 
-VK_MAP = {
+EXTENDED_VKS = {
+    0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,  # PageUp, PageDown, End, Home, Arrows
+    0x2D, 0x2E,                                      # Insert, Delete
+    0x5B, 0x5C,                                      # Win keys
+    0xA3, 0xA5,                                      # Right Ctrl, Right Alt
+    0x6F,                                            # Divide
+}
+
+class KEYBDINPUT(ctypes.Structure):
+    _fields_ = [
+        ("wVk", wintypes.WORD),
+        ("wScan", wintypes.WORD),
+        ("dwFlags", wintypes.DWORD),
+        ("time", wintypes.DWORD),
+        ("dwExtraInfo", ctypes.c_size_t),
+    ]
+
+class MOUSEINPUT(ctypes.Structure):
+    _fields_ = [
+        ("dx", wintypes.LONG),
+        ("dy", wintypes.LONG),
+        ("mouseData", wintypes.DWORD),
+        ("dwFlags", wintypes.DWORD),
+        ("time", wintypes.DWORD),
+        ("dwExtraInfo", ctypes.c_size_t),
+    ]
+
+class HARDWAREINPUT(ctypes.Structure):
+    _fields_ = [
+        ("uMsg", wintypes.DWORD),
+        ("wParamL", wintypes.WORD),
+        ("wParamH", wintypes.WORD),
+    ]
+
+class INPUT_UNION(ctypes.Union):
+    _fields_ = [
+        ("mi", MOUSEINPUT),
+        ("ki", KEYBDINPUT),
+        ("hi", HARDWAREINPUT),
+    ]
+
+class INPUT(ctypes.Structure):
+    _fields_ = [
+        ("type", wintypes.DWORD),
+        ("u", INPUT_UNION),
+    ]
+
+user32.SendInput.argtypes = [wintypes.UINT, ctypes.POINTER(INPUT), ctypes.c_int]
+user32.SendInput.restype = wintypes.UINT
+
+def _send_hardware_key(vk: int, is_up: bool):
+    ensure_default_desktop()
+    sc = user32.MapVirtualKeyW(vk, 0) # MAPVK_VK_TO_VSC
+
+    flags = 0
+    if is_up:
+        flags |= KEYEVENTF_KEYUP
+    if vk in EXTENDED_VKS:
+        flags |= KEYEVENTF_EXTENDEDKEY
+
+    # Method 1: SendInput with Virtual Key + Scan Code for DirectInput/RawInput games
+    inp = INPUT()
+    inp.type = 1 # INPUT_KEYBOARD
+    inp.u.ki.wVk = vk
+    inp.u.ki.wScan = sc
+    inp.u.ki.dwFlags = flags
+    inp.u.ki.time = 0
+    inp.u.ki.dwExtraInfo = 0
+
+    sent = user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT))
+    # Method 2: Fallback to keybd_event with scan code
+    if sent == 0:
+        user32.keybd_event(vk, sc, flags, 0)
+
+def mouse_move_relative(dx: int, dy: int):
+    ensure_default_desktop()
+    # Generates hardware relative motion packets (DirectInput/RawInput for 3D games)
+    user32.mouse_event(MOUSEEVENTF_MOVE, int(dx), int(dy), 0, 0)
     "enter": 0x0D,
     "backspace": 0x08,
     "tab": 0x09,
@@ -112,7 +192,7 @@ def mouse_button(button: str, action: str):
 def mouse_click(button: str = "left"):
     ensure_default_desktop()
     mouse_button(button, "down")
-    time.sleep(0.015)
+    time.sleep(0.04) # 40ms hold duration for 30/60 FPS game tick detection
     mouse_button(button, "up")
 
 def mouse_scroll(delta_y: int, delta_x: int = 0):
@@ -127,13 +207,13 @@ def mouse_scroll(delta_y: int, delta_x: int = 0):
 def key_press_vk(vk: int, action: str = "tap"):
     ensure_default_desktop()
     if action == "down":
-        user32.keybd_event(vk, 0, 0, 0)
+        _send_hardware_key(vk, is_up=False)
     elif action == "up":
-        user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
+        _send_hardware_key(vk, is_up=True)
     else: # tap
-        user32.keybd_event(vk, 0, 0, 0)
-        time.sleep(0.015)
-        user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
+        _send_hardware_key(vk, is_up=False)
+        time.sleep(0.04)
+        _send_hardware_key(vk, is_up=True)
 
 def key_press(key_code_or_name: str, action: str = "tap"):
     ensure_default_desktop()
@@ -156,22 +236,22 @@ def key_press(key_code_or_name: str, action: str = "tap"):
             return
 
     if action == "down":
-        user32.keybd_event(vk, 0, 0, 0)
+        _send_hardware_key(vk, is_up=False)
     elif action == "up":
-        user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
+        _send_hardware_key(vk, is_up=True)
     else: # tap
-        user32.keybd_event(vk, 0, 0, 0)
-        time.sleep(0.015)
-        user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
+        _send_hardware_key(vk, is_up=False)
+        time.sleep(0.04)
+        _send_hardware_key(vk, is_up=True)
 
 def hotkey(*keys):
     ensure_default_desktop()
     vks = [VK_MAP.get(k.lower()) for k in keys if VK_MAP.get(k.lower()) is not None]
     for vk in vks:
-        user32.keybd_event(vk, 0, 0, 0)
-    time.sleep(0.02)
+        _send_hardware_key(vk, is_up=False)
+    time.sleep(0.04)
     for vk in reversed(vks):
-        user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
+        _send_hardware_key(vk, is_up=True)
 
 def type_text(text: str):
     ensure_default_desktop()
